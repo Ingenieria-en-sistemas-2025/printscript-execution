@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  execution:
+    build: .
+    container_name: ps-execution
+    ports: ["8082:8082"]
+    networks: [printscript-net]
+    environment:
+      LOGGING_LEVEL_ROOT: INFO
+networks:
+  printscript-net:
+    external: true
