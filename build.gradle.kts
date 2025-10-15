@@ -19,17 +19,40 @@ java {
 }
 
 repositories {
+    // mavenLocal()
     mavenCentral()
+    maven {
+        name = "GitHubPackages"
+        url = uri("https://maven.pkg.github.com/Ingenieria-en-sistemas-2025/PrintScriptV1")
+        credentials {
+            username = findProperty("gpr.user") as String? ?: System.getenv("USERNAME")
+            password = findProperty("gpr.key") as String? ?: System.getenv("TOKEN")
+        }
+    }
 }
+
+
+val psver = "1.0.9";
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("org.printscript:runner:${psver}")
+    implementation("org.printscript:common:${psver}")
+    implementation("org.printscript:token:${psver}")
+    implementation("org.printscript:ast:${psver}")
+    implementation("org.printscript:lexer:${psver}")
+    implementation("org.printscript:parser:${psver}")
+    implementation("org.printscript:analyzer:${psver}")
+    implementation("org.printscript:formatter:${psver}")
+    implementation("org.printscript:interpreter:${psver}")
+    implementation("org.printscript:cli:${psver}")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
+// tengo que traerme el cli por el version support o agregarlo en otro lado
 
 kotlin {
     compilerOptions {
