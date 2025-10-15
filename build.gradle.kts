@@ -1,11 +1,11 @@
 plugins {
-    kotlin("jvm") version "1.9.23"
-    kotlin("plugin.spring") version "1.9.23"
+    kotlin("jvm") version "2.2.10"
+    kotlin("plugin.spring") version "2.2.10"
     id("org.springframework.boot") version "3.5.6"
     id("io.spring.dependency-management") version "1.1.7"
     id("jacoco")
     id("com.diffplug.spotless") version "6.25.0"
-    id("io.gitlab.arturbosch.detekt") version "1.23.6"
+    id("dev.detekt") version "2.0.0-alpha.0"
 }
 
 group = "com.printscript"
@@ -31,28 +31,27 @@ repositories {
     }
 }
 
-
-val psver = "1.0.9";
+val psver = "1.0.9"
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.printscript:runner:${psver}")
-    implementation("org.printscript:common:${psver}")
-    implementation("org.printscript:token:${psver}")
-    implementation("org.printscript:ast:${psver}")
-    implementation("org.printscript:lexer:${psver}")
-    implementation("org.printscript:parser:${psver}")
-    implementation("org.printscript:analyzer:${psver}")
-    implementation("org.printscript:formatter:${psver}")
-    implementation("org.printscript:interpreter:${psver}")
-    implementation("org.printscript:cli:${psver}")
+    implementation("org.printscript:runner:$psver")
+    implementation("org.printscript:common:$psver")
+    implementation("org.printscript:token:$psver")
+    implementation("org.printscript:ast:$psver")
+    implementation("org.printscript:lexer:$psver")
+    implementation("org.printscript:parser:$psver")
+    implementation("org.printscript:analyzer:$psver")
+    implementation("org.printscript:formatter:$psver")
+    implementation("org.printscript:interpreter:$psver")
+    implementation("org.printscript:cli:$psver")
+    implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.2.10"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
-// tengo que traerme el cli por el version support o agregarlo en otro lado
 
 kotlin {
     compilerOptions {
@@ -72,15 +71,18 @@ tasks.test {
 spotless {
     kotlin {
         target("**/*.kt")
-        ktlint("0.50.0").editorConfigOverride(
-            mapOf("max_line_length" to "400", "indent_size" to "4"),
+        ktlint("1.7.1").editorConfigOverride(
+            mapOf(
+                "max_line_length" to "400",
+                "indent_size" to "4",
+            ),
         )
         trimTrailingWhitespace()
         endWithNewline()
     }
     kotlinGradle {
         target("**/*.gradle.kts")
-        ktlint("0.50.0")
+        ktlint("1.7.1")
         trimTrailingWhitespace()
         endWithNewline()
     }
