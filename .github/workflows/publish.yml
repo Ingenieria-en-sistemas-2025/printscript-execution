@@ -92,6 +92,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           provenance: false
+          secrets: |
+            "gpr.user=${{ github.actor }}"
+            "gpr.key=${{ secrets.GITHUB_TOKEN }}"
 
 
   deploy:
