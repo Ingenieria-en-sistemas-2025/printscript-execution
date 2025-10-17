@@ -17,7 +17,7 @@ object AnalyzerConfigResolver {
 
         val fmt = when (req.configFormat?.lowercase()) {
             null, "", "json" -> ConfigFormat.JSON
-            "yaml", "yml"    -> ConfigFormat.YAML
+            "yaml", "yml" -> ConfigFormat.YAML
             else -> throw IllegalArgumentException("configFormat inválido: ${req.configFormat}") // ver
         }
 
@@ -31,7 +31,7 @@ object AnalyzerConfigResolver {
             is Success -> result.value
             is Failure -> throw ExecException(
                 diagnostic = ErrorMapping.toApiDiagnostic(result.error, "PS-LINT"),
-                msg = result.error.message
+                msg = result.error.message,
             )
         }
     }

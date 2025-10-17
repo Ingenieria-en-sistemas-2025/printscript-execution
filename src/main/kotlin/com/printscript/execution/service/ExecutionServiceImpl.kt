@@ -4,7 +4,6 @@ import com.printscript.execution.dto.DiagnosticDto
 import com.printscript.execution.dto.FormatReq
 import com.printscript.execution.dto.FormatRes
 import com.printscript.execution.dto.LintReq
-import com.printscript.execution.utils.QueueInputProvider
 import com.printscript.execution.dto.LintRes
 import com.printscript.execution.dto.ParseReq
 import com.printscript.execution.dto.ParseRes
@@ -21,6 +20,7 @@ import com.printscript.execution.error.ExecException
 import com.printscript.execution.utils.AnalyzerConfigResolver.resolveAnalyzerConfig
 import com.printscript.execution.utils.DiagnosticCollector
 import com.printscript.execution.utils.FormatterOptionsResolver
+import com.printscript.execution.utils.QueueInputProvider
 import com.printscript.execution.utils.diagToDiagnosticDto
 import com.printscript.execution.utils.errorToDto
 import org.printscript.ast.StatementStream
@@ -43,6 +43,8 @@ import org.springframework.stereotype.Service
 private const val PASS = "PASS"
 private const val FAIL = "FAIL"
 private const val ERROR = "ERROR"
+private const val MAX_STEPS = 10000
+
 @Service
 class ExecutionServiceImpl : ExecutionService {
 
@@ -67,7 +69,7 @@ class ExecutionServiceImpl : ExecutionService {
         return InterpreterWithStatements(interpreter, statements)
     }
 
-    private fun getWiringInfo(req: Request) : WiringInfo {
+    private fun getWiringInfo(req: Request): WiringInfo {
         val version = parseVersion(req.version)
         val wiring = LanguageWiringFactory.forVersion(version)
         val io = ProgramIo(req.content)
@@ -91,16 +93,19 @@ class ExecutionServiceImpl : ExecutionService {
         val wiringInfo = getWiringInfo(req)
         val diags = mutableListOf<DiagnosticDto>()
         tailrec fun loop(cur: StatementStream, steps: Int = 0) {
-            if (steps > 10000) {
+            if (steps > MAX_STEPS) {
                 throw ExecException(
                     diagnostic = ApiDiagnostic("PS-PARSE", "Parser no progresa (posible loop de recuperación)", 1, 1),
-                    msg = "Parser no progresa"
+                    msg = "Parser no progresa",
                 )
             }
             when (val step = cur.nextStep()) {
-                is Step.Item  -> loop(step.next, steps + 1)
-                is Step.Error -> { diags += errorToDto(step.error); loop(step.next, steps + 1) }
-                is Step.Eof   -> return
+                is Step.Item -> loop(step.next, steps + 1)
+                is Step.Error -> {
+                    diags += errorToDto(step.error)
+                    loop(step.next, steps + 1)
+                }
+                is Step.Eof -> return
             }
         }
         loop(wiringInfo.statementStream)
@@ -117,10 +122,9 @@ class ExecutionServiceImpl : ExecutionService {
             is Success -> LintRes(violations = collector.diagnostics.map { diagToDiagnosticDto(it) })
             is Failure -> throw ExecException(
                 diagnostic = ErrorMapping.toApiDiagnostic(lint.error, "PS-LINT"),
-                msg = lint.error.message
+                msg = lint.error.message,
             )
         }
-
     }
 
     override fun execute(req: RunReq): RunRes {
@@ -151,25 +155,25 @@ class ExecutionServiceImpl : ExecutionService {
 
     override fun formatContent(req: FormatReq): FormatRes {
         requirePrintScript(req.language)
-        val version  = parseVersion(req.version)
-        val options  = FormatterOptionsResolver.resolve(req)
+        val version = parseVersion(req.version)
+        val options = FormatterOptionsResolver.resolve(req)
         val lexerFactory = LexerFactory()
-        val tokenStream: TokenStream = lexerFactory.tokenStream(version, req.content,true) // emit trivia
+        val tokenStream: TokenStream = lexerFactory.tokenStream(version, req.content, true) // emit trivia
         val formatter = GlobalFormatterFactory.forVersion(version, options)
-        val out      = StringBuilder()
+        val out = StringBuilder()
 
         if (formatter == null) {
             out.append(req.content)
             return FormatRes(out.toString())
         }
 
-        return when(val fmt = formatter.format(tokenStream, out)){
+        return when (val fmt = formatter.format(tokenStream, out)) {
             is Success -> FormatRes(out.toString())
-            is Failure ->  {
+            is Failure -> {
                 val le = fmt.error
                 throw ExecException(
                     diagnostic = ErrorMapping.toApiDiagnostic(le, "PS-FORMAT"),
-                    msg = le.message
+                    msg = le.message,
                 )
             }
         }
@@ -186,7 +190,7 @@ class ExecutionServiceImpl : ExecutionService {
                 index = i,
                 status = ERROR,
                 reason = syntax.message,
-                diagnostic = err
+                diagnostic = err,
             )
         }
     }
@@ -207,8 +211,8 @@ class ExecutionServiceImpl : ExecutionService {
                     language = req.language,
                     version = req.version,
                     content = req.content,
-                    inputs = testCase.inputs
-                )
+                    inputs = testCase.inputs,
+                ),
             )
             val (status, mismatchAt) = evaluateOutputs(testCase.expectedOutputs, runRes.outputs)
             SingleTestResultDto(
@@ -216,14 +220,14 @@ class ExecutionServiceImpl : ExecutionService {
                 status = status,
                 expected = testCase.expectedOutputs,
                 actual = runRes.outputs,
-                mismatchAt = mismatchAt
+                mismatchAt = mismatchAt,
             )
         } catch (ex: ExecException) {
             SingleTestResultDto(
                 index = index,
                 status = ERROR,
                 reason = ex.message,
-                diagnostic = ex.diagnostic?.let { d -> DiagnosticDto(d.code, d.message, d.line, d.column) }
+                diagnostic = ex.diagnostic?.let { d -> DiagnosticDto(d.code, d.message, d.line, d.column) },
             )
         }
     }
@@ -233,22 +237,17 @@ class ExecutionServiceImpl : ExecutionService {
         precheckSyntaxOrNull(req)?.let { allErrors ->
             return RunTestsRes(
                 summary = SummaryDto(total = allErrors.size, passed = 0),
-                results = allErrors
+                results = allErrors,
             )
         }
         val results = (req.testCases.indices).map { idx -> runOneTestCase(req, idx) }
         val passed = results.count { it.status == PASS }
         return RunTestsRes(
             summary = SummaryDto(total = results.size, passed = passed),
-            results = results
+            results = results,
         )
     }
 
     private data class InterpreterWithStatements(val interpreter: Interpreter, val statements: StatementStream)
-    private data class WiringInfo(
-            val version: Version,
-            val wiring: LanguageWiring,
-            val tokenStream: TokenStream,
-            val statementStream: StatementStream
-        )
+    private data class WiringInfo(val version: Version, val wiring: LanguageWiring, val tokenStream: TokenStream, val statementStream: StatementStream)
 }
