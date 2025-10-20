@@ -1,13 +1,13 @@
 #!/usr/bin/env sh
-
-set -e  # cualquier error -> se bloquea el push
+set -e
 
 ./gradlew --quiet spotlessApply
-git add -A
+
+if ! git diff --quiet; then
+  git add -A
+  git commit -m "style: apply Spotless" --no-verify
+fi
 
 ./gradlew --quiet detekt
-
-# Tests + coverage + checks
 ./gradlew --quiet clean check
-
 echo "pre-push OK"
