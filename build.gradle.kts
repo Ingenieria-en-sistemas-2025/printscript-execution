@@ -110,6 +110,3 @@ tasks.register("ensureGitHooks") {
     dependsOn("installGitHooks")
     onlyIf { gitDir.asFile.exists() }
 }
-
-
-
