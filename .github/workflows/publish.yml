@@ -119,6 +119,7 @@ jobs:
             echo "Esperando SSH..." && sleep 5
           done
           echo "Timeout esperando SSH" && exit 1
+
       - name: Start PROD VM
         if: github.ref_name == 'main'
         run: |
@@ -149,7 +150,7 @@ jobs:
             if [ -n "${GHCR_USER}" ] && [ -n "${GHCR_PAT}" ]; then
               echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             fi
-            docker network create printscript-net || true
+            
             
             SVC_NAME="execution"
             
@@ -177,7 +178,7 @@ jobs:
             if [ -n "${GHCR_USER}" ] && [ -n "${GHCR_PAT}" ]; then
               echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             fi
-            docker network create printscript-net || true
+            
             SVC_NAME="execution"
             docker compose pull "$SVC_NAME"
             docker compose up -d --no-deps "$SVC_NAME"
