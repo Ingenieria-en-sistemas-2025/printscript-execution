@@ -1,18 +1,15 @@
 naming:
   ClassNaming:
     active: true
-    # Empieza con mayúscula y NO permite [A-Z]{2}
     classPattern: '^(?!.*[A-Z]{2})[A-Z][A-Za-z0-9]*$'
 
   FunctionNaming:
     active: true
-    # lowerCamelCase, sin AA
     functionPattern: '^(?!.*[A-Z]{2})[a-z][A-Za-z0-9]*$'
-    ignoreAnnotated: ['Test']   # permite nombres raros en tests
+    ignoreAnnotated: ['Test']
 
   VariableNaming:
     active: true
-    # lowerCamelCase, sin AA
     variablePattern: '^(?!.*[A-Z]{2})[a-z][A-Za-z0-9]*$'
 
 style:
@@ -33,15 +30,17 @@ style:
 complexity:
   LongParameterList:
     active: true
-    functionThreshold: 8
+    allowedFunctionParameters: 8
 
   CyclomaticComplexMethod:
     active: true
-    threshold: 25
+    allowedComplexity: 25
+
   TooManyFunctions:
     active: true
-    thresholdInClasses: 20
-    thresholdInInterfaces: 20
+    allowedFunctionsPerClass: 20
+    allowedFunctionsPerInterface: 20
+
 
 exceptions:
   TooGenericExceptionCaught:
