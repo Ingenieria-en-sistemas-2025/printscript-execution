@@ -32,28 +32,24 @@ class SecurityConfig(
     private val audience: String,
 ) {
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain =
-        http
-            .authorizeHttpRequests {
-                it
-                    // (no necesita auth)
-                    .requestMatchers(GET, "/ping").permitAll()
-
-                    .requestMatchers(POST, "/parse").hasAuthority("SCOPE_execute:code")
-                    .requestMatchers(POST, "/lint").hasAuthority("SCOPE_execute:code")
-                    .requestMatchers(POST, "/format").hasAuthority("SCOPE_execute:code")
-                    .requestMatchers(POST, "/run").hasAuthority("SCOPE_execute:code")
-                    .requestMatchers(POST, "/run-tests").hasAuthority("SCOPE_execute:code")
-
-                    .anyRequest().authenticated()
-            }
-            .oauth2ResourceServer { rs ->
-                rs.jwt { jwt -> jwt.jwtAuthenticationConverter(permissionsConverter()) }
-            }
-            .csrf { it.disable() }
-            .cors { it.disable() }
-            .build()
-
+    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain = http
+        .authorizeHttpRequests {
+            it
+                // (no necesita auth)
+                .requestMatchers(GET, "/ping").permitAll()
+                .requestMatchers(POST, "/parse").hasAuthority("SCOPE_execute:code")
+                .requestMatchers(POST, "/lint").hasAuthority("SCOPE_execute:code")
+                .requestMatchers(POST, "/format").hasAuthority("SCOPE_execute:code")
+                .requestMatchers(POST, "/run").hasAuthority("SCOPE_execute:code")
+                .requestMatchers(POST, "/run-tests").hasAuthority("SCOPE_execute:code")
+                .anyRequest().authenticated()
+        }
+        .oauth2ResourceServer { rs ->
+            rs.jwt { jwt -> jwt.jwtAuthenticationConverter(permissionsConverter()) }
+        }
+        .csrf { it.disable() }
+        .cors { it.disable() }
+        .build()
 
     private fun permissionsConverter(): Converter<Jwt, AbstractAuthenticationToken> {
         val base = JwtGrantedAuthoritiesConverter().apply { setAuthorityPrefix("SCOPE_") }
@@ -68,10 +64,9 @@ class SecurityConfig(
     }
 
     @Bean
-    fun jwtDecoder(tokenValidator: OAuth2TokenValidator<Jwt>): JwtDecoder =
-        NimbusJwtDecoder.withIssuerLocation(issuer).build().apply {
-            setJwtValidator(tokenValidator)
-        }
+    fun jwtDecoder(tokenValidator: OAuth2TokenValidator<Jwt>): JwtDecoder = NimbusJwtDecoder.withIssuerLocation(issuer).build().apply {
+        setJwtValidator(tokenValidator)
+    }
 
     @Bean
     fun tokenValidator(): OAuth2TokenValidator<Jwt> {
