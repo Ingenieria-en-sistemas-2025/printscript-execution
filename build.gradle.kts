@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     kotlin("jvm") version "2.2.10"
     kotlin("plugin.spring") version "2.2.10"
@@ -47,6 +49,8 @@ dependencies {
     implementation("org.printscript:formatter:$psver")
     implementation("org.printscript:interpreter:$psver")
     implementation("org.printscript:cli:$psver")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.2.10"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
