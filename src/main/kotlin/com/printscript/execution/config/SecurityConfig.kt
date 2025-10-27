@@ -42,6 +42,7 @@ class SecurityConfig(
                 .requestMatchers(POST, "/format").hasAuthority("SCOPE_execute:code")
                 .requestMatchers(POST, "/run").hasAuthority("SCOPE_execute:code")
                 .requestMatchers(POST, "/run-tests").hasAuthority("SCOPE_execute:code")
+                .requestMatchers(POST, "/run-test").hasAuthority("SCOPE_execute:code")
                 .anyRequest().authenticated()
         }
         .oauth2ResourceServer { rs ->
