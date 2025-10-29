@@ -21,15 +21,15 @@ class LintingConsumer(
     private val exec: ExecutionService,
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.linting}") private val dlqKey: String
-) : RedisStreamConsumer<SnippetLintingRulesUpdated>(streamKey, groupId, redisStr) {
+) : RedisStreamConsumer<SnippetsLintingRulesUpdated>(streamKey, groupId, redisStr) {
 
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetLintingRulesUpdated>> =
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> =
         StreamReceiver.StreamReceiverOptions.builder()
             .pollTimeout(Duration.ofSeconds(10))
-            .targetType(SnippetLintingRulesUpdated::class.java)
+            .targetType(SnippetsLintingRulesUpdated::class.java)
             .build()
 
-    override fun onMessage(record: ObjectRecord<String, SnippetLintingRulesUpdated>) {
+    override fun onMessage(record: ObjectRecord<String, SnippetsLintingRulesUpdated>) {
         val event = record.value
         try {
             val content = snippets.getContent(event.snippetId)
@@ -48,7 +48,7 @@ class LintingConsumer(
         }
     }
 
-    private fun retryOrDlq(ev: SnippetLintingRulesUpdated) {
+    private fun retryOrDlq(ev: SnippetsLintingRulesUpdated) {
         if (ev.attempt + 1 <= MAX_ATTEMPTS) {
             val next = ev.copy(attempt = ev.attempt + 1)
             redisJson.opsForStream<String, Any>()

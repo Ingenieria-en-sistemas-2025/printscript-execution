@@ -21,15 +21,15 @@ class FormattingConsumer(
     private val exec: ExecutionService,
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.formatting}") private val dlqKey: String
-    ): RedisStreamConsumer<SnippetFormattingRulesUpdated>(streamKey, groupId, redisStr) {
+    ): RedisStreamConsumer<SnippetsFormattingRulesUpdated>(streamKey, groupId, redisStr) {
 
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetFormattingRulesUpdated>> =
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> =
         StreamReceiver.StreamReceiverOptions.builder()
             .pollTimeout(Duration.ofSeconds(10))
-            .targetType(SnippetFormattingRulesUpdated::class.java)
+            .targetType(SnippetsFormattingRulesUpdated::class.java)
             .build()
 
-    override fun onMessage(record: ObjectRecord<String, SnippetFormattingRulesUpdated>) {
+    override fun onMessage(record: ObjectRecord<String, SnippetsFormattingRulesUpdated>) {
         val event = record.value
         try {
             val content = snippets.getContent(event.snippetId)
@@ -49,7 +49,7 @@ class FormattingConsumer(
         }
     }
 
-    private fun retryOrDlq(ev: SnippetFormattingRulesUpdated) {
+    private fun retryOrDlq(ev: SnippetsFormattingRulesUpdated) {
         if (ev.attempt + 1 <= MAX_ATTEMPTS) {
             val next = ev.copy(attempt = ev.attempt + 1)
             redisJson.opsForStream<String, Any>()
