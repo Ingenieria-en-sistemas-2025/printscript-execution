@@ -37,12 +37,12 @@ class SecurityConfig(
             it
                 // (no necesita auth)
                 .requestMatchers(GET, "/ping").permitAll()
-                .requestMatchers(POST, "/parse").hasAuthority("SCOPE_execute:code")
-                .requestMatchers(POST, "/lint").hasAuthority("SCOPE_execute:code")
-                .requestMatchers(POST, "/format").hasAuthority("SCOPE_execute:code")
-                .requestMatchers(POST, "/run").hasAuthority("SCOPE_execute:code")
-                .requestMatchers(POST, "/run-tests").hasAuthority("SCOPE_execute:code")
-                .requestMatchers(POST, "/run-test").hasAuthority("SCOPE_execute:code")
+                .requestMatchers(POST, "/parse").permitAll()
+                .requestMatchers(POST, "/lint").permitAll()
+                .requestMatchers(POST, "/format").permitAll()
+                .requestMatchers(POST, "/run").permitAll()
+                .requestMatchers(POST, "/run-tests").permitAll()
+                .requestMatchers(POST, "/run-test").permitAll()
                 .anyRequest().authenticated()
         }
         .oauth2ResourceServer { rs ->
