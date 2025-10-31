@@ -7,10 +7,7 @@ import org.springframework.stereotype.Component
 import org.springframework.web.client.RestTemplate
 
 @Component
-class SnippetsClient(
-    @Value("\${snippets.base-url}") private val base: String,
-    private val rest: RestTemplate = RestTemplate()
-    ) {
+class SnippetsClient(@Value("\${snippets.base-url}") private val base: String, private val rest: RestTemplate = RestTemplate()) {
     fun getContent(snippetId: Long): String {
         val res: ResponseEntity<ContentDto> = rest.getForEntity("$base/internal/snippets/$snippetId/content", ContentDto::class.java)
         return res.body?.content
@@ -18,13 +15,19 @@ class SnippetsClient(
     }
 
     fun saveFormatted(snippetId: Long, formatted: String) {
-        rest.postForEntity("$base/internal/snippets/$snippetId/format",
-            mapOf("content" to formatted), Void::class.java)
+        rest.postForEntity(
+            "$base/internal/snippets/$snippetId/format",
+            mapOf("content" to formatted),
+            Void::class.java,
+        )
     }
 
     fun saveLint(snippetId: Long, violations: List<DiagnosticDto>) {
-        rest.postForEntity("$base/internal/snippets/$snippetId/lint",
-            violations, Void::class.java)
+        rest.postForEntity(
+            "$base/internal/snippets/$snippetId/lint",
+            violations,
+            Void::class.java,
+        )
     }
 }
 

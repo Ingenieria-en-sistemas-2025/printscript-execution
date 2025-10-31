@@ -1,4 +1,3 @@
 package com.printscript.execution.redis
 
-interface DomainEvent {
-}
+interface DomainEvent
