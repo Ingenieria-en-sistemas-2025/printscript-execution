@@ -1,2 +1,34 @@
 server:
   port: 8080
+
+auth0:
+  audience: https://snippet-manager
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://dev-c2gyaqqsxa2v3nig.us.auth0.com/
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+streams:
+  formatting:
+    key: ps.formatting
+    group: formatting-workers
+  linting:
+    key: ps.linting
+    group: linting-workers
+  dlq:
+    formatting: ps.dlq.formatting
+    linting: ps.dlq.linting
+
+snippets:
+  base-url: ${SNIPPETS_BASE_URL:http://snippets:8080}
+
+
+
+

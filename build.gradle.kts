@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     kotlin("jvm") version "2.2.10"
     kotlin("plugin.spring") version "2.2.10"
@@ -30,6 +32,15 @@ repositories {
                 ?: System.getenv("GITHUB_TOKEN")
         }
     }
+
+    maven {
+        name = "GitHubPackages"
+        url = uri("https://maven.pkg.github.com/austral-ingsis/class-redis-streams")
+        credentials {
+            username = (findProperty("gpr.user") as String?) ?: System.getenv("GITHUB_ACTOR")
+            password = (findProperty("gpr.key") as String?) ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
 }
 val psver = "1.0.13"
 
@@ -47,10 +58,14 @@ dependencies {
     implementation("org.printscript:formatter:$psver")
     implementation("org.printscript:interpreter:$psver")
     implementation("org.printscript:cli:$psver")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.2.10"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    implementation("org.austral.ingsis:redis-streams-mvc:0.1.13")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
 }
 
 kotlin {

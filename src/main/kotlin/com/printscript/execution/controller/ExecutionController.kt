@@ -8,6 +8,9 @@ import com.printscript.execution.dto.ParseReq
 import com.printscript.execution.dto.ParseRes
 import com.printscript.execution.dto.RunReq
 import com.printscript.execution.dto.RunRes
+import com.printscript.execution.dto.RunSingleTestReq
+import com.printscript.execution.dto.RunSingleTestRes
+import com.printscript.execution.dto.RunTestCaseDto
 import com.printscript.execution.dto.RunTestsReq
 import com.printscript.execution.dto.RunTestsRes
 import com.printscript.execution.service.ExecutionServiceImpl
@@ -39,4 +42,22 @@ class ExecutionController(private val service: ExecutionServiceImpl) {
 
     @PostMapping("/run-tests")
     fun runTests(@RequestBody req: RunTestsReq): RunTestsRes = service.runTests(req)
+
+    @PostMapping("/run-test")
+    fun runTest(@RequestBody req: RunSingleTestReq): RunSingleTestRes {
+        val wrapper = RunTestsReq(
+            language = req.language,
+            version = req.version,
+            content = req.content,
+            testCases = listOf(RunTestCaseDto(req.inputs, req.expectedOutputs)),
+            options = req.options,
+        )
+        val res = service.runTests(wrapper).results.first() // siempre 1
+        return RunSingleTestRes(
+            status = res.status,
+            actual = res.actual,
+            mismatchAt = res.mismatchAt,
+            diagnostic = res.diagnostic,
+        )
+    }
 }

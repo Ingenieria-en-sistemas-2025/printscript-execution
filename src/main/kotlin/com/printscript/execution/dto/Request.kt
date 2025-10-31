@@ -15,3 +15,5 @@ data class ParseReq(override val language: String, override val version: String,
 data class FormatReq(override val language: String, override val version: String, override val content: String, val configText: String? = null, val configFormat: String? = null, val options: FormatterOptionsDto? = null) : Request
 
 data class RunTestsReq(override val language: String, override val version: String, override val content: String, val testCases: List<RunTestCaseDto>, val options: RunTestsOptionsDto? = null) : Request
+
+data class RunSingleTestReq(val language: String, val version: String, val content: String, val inputs: List<String> = emptyList(), val expectedOutputs: List<String> = emptyList(), val options: RunTestsOptionsDto? = null)
