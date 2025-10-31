@@ -5,16 +5,17 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestTemplate
+import java.util.UUID
 
 @Component
 class SnippetsClient(@Value("\${snippets.base-url}") private val base: String, private val rest: RestTemplate = RestTemplate()) {
-    fun getContent(snippetId: Long): String {
+    fun getContent(snippetId: UUID): String {
         val res: ResponseEntity<ContentDto> = rest.getForEntity("$base/internal/snippets/$snippetId/content", ContentDto::class.java)
         return res.body?.content
             ?: error("content not found for snippet $snippetId")
     }
 
-    fun saveFormatted(snippetId: Long, formatted: String) {
+    fun saveFormatted(snippetId: UUID, formatted: String) {
         rest.postForEntity(
             "$base/internal/snippets/$snippetId/format",
             mapOf("content" to formatted),
@@ -22,7 +23,7 @@ class SnippetsClient(@Value("\${snippets.base-url}") private val base: String, p
         )
     }
 
-    fun saveLint(snippetId: Long, violations: List<DiagnosticDto>) {
+    fun saveLint(snippetId: UUID, violations: List<DiagnosticDto>) {
         rest.postForEntity(
             "$base/internal/snippets/$snippetId/lint",
             violations,
