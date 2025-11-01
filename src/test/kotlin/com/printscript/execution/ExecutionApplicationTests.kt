@@ -2,6 +2,7 @@ package com.printscript.execution
 
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
 import org.springframework.test.context.TestPropertySource
 import kotlin.test.assertTrue
 
@@ -9,6 +10,7 @@ import kotlin.test.assertTrue
     classes = [ExecutionApplication::class],
     webEnvironment = SpringBootTest.WebEnvironment.NONE,
 )
+@Import(TestConfig::class)
 @TestPropertySource(
     properties = [
         "spring.autoconfigure.exclude=" +
@@ -22,6 +24,7 @@ import kotlin.test.assertTrue
         "streams.enabled=false",
         "spring.data.redis.host=test-redis",
         "spring.data.redis.port=6379",
+        "spring.main.allow-circular-references=true",
     ],
 )
 class ExecutionApplicationTests {
