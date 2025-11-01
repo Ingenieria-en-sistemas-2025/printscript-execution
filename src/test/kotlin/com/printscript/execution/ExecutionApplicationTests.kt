@@ -14,6 +14,8 @@ import kotlin.test.assertTrue
         "auth0.audience=https://test-audience",
         "auth0.domain=test-domain.auth0.com",
         "snippets.base-url=http://test-snippets:8080",
+        "spring.data.redis.host=localhost",
+        "spring.data.redis.port=6379",
     ],
 )
 class ExecutionApplicationTests {
