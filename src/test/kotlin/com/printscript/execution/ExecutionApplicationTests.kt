@@ -10,16 +10,16 @@ import kotlin.test.assertTrue
 
 @SpringBootTest(
     classes = [ExecutionApplication::class],
-    webEnvironment = SpringBootTest.WebEnvironment.NONE
+    webEnvironment = SpringBootTest.WebEnvironment.NONE,
 )
 @ComponentScan(
     basePackages = ["com.printscript.execution"],
     excludeFilters = [
         ComponentScan.Filter(
             type = FilterType.ASSIGNABLE_TYPE,
-            classes = [SecurityConfig::class]
-        )
-    ]
+            classes = [SecurityConfig::class],
+        ),
+    ],
 )
 @TestPropertySource(
     properties = [
