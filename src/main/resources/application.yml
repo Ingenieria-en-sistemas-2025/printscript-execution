@@ -6,6 +6,13 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: https://dev-c2gyaqqsxa2v3nig.us.auth0.com/
+          issuer-uri: ${AUTH0_ISSUER_URI:https://dev-c2gyaqqsxa2v3nig.us.auth0.com/}
+
+snippets:
+  base-url: ${SNIPPETS_BASE_URL:http://snippets:8080}
+
 auth0:
-  audience: https://snippet-manager
+  audience: ${AUTH0_AUDIENCE:https://snippet-manager}
+  domain: ${AUTH0_DOMAIN:dev-c2gyaqqsxa2v3nig.us.auth0.com}
+  client-id: ${AUTH0_CLIENT_ID}
+  client-secret: ${AUTH0_CLIENT_SECRET}
