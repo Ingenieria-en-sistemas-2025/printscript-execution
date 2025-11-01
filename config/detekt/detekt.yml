@@ -13,6 +13,11 @@ naming:
     variablePattern: '^(?!.*[A-Z]{2})[a-z][A-Za-z0-9]*$'
 
 style:
+
+  ThrowsCount:
+    active: true
+    max: 5
+
   MaxLineLength:
     active: true
     maxLineLength: 400
