@@ -12,15 +12,6 @@ import kotlin.test.assertTrue
     classes = [ExecutionApplication::class],
     webEnvironment = SpringBootTest.WebEnvironment.NONE,
 )
-@ComponentScan(
-    basePackages = ["com.printscript.execution"],
-    excludeFilters = [
-        ComponentScan.Filter(
-            type = FilterType.ASSIGNABLE_TYPE,
-            classes = [SecurityConfig::class],
-        ),
-    ],
-)
 @TestPropertySource(
     properties = [
         "spring.security.oauth2.resourceserver.jwt.issuer-uri=https://test-auth-issuer.com/",
@@ -32,6 +23,7 @@ import kotlin.test.assertTrue
         "streams.enabled=false",
         "spring.data.redis.host=test-redis",
         "spring.data.redis.port=6379",
+        "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration",
     ],
 )
 class ExecutionApplicationTests {
