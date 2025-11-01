@@ -4,24 +4,25 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Lazy
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
+import org.springframework.web.client.ResourceAccessException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientResponseException
 import java.time.Instant
 
 @Service
 class Auth0TokenService(
-    @param:Value("\${auth0.domain}")
-    private val domain: String,
+    @param:Value("\${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
+    private val issuer: String,
     @param:Value("\${auth0.client-id}")
     private val clientId: String,
     @param:Value("\${auth0.client-secret}")
     private val clientSecret: String,
     @param:Value("\${auth0.audience}")
     private val audience: String,
-
-    // Asume que tienes un RestClient básico
+    @Lazy
     @Qualifier("plainRestClient")
     private val rest: RestClient,
 ) {
@@ -44,7 +45,8 @@ class Auth0TokenService(
     private fun refreshToken() {
         logger.info("Token M2M expirado o próximo a expirar. Solicitando nuevo token a Auth0.")
 
-        val authUrl = "https://$domain/oauth/token"
+        val base = if (issuer.endsWith("/")) issuer else "$issuer/"
+        val authUrl = base + "oauth/token"
 
         val requestBody = mapOf(
             "grant_type" to "client_credentials",
@@ -60,23 +62,19 @@ class Auth0TokenService(
                 .body(requestBody)
                 .retrieve()
                 .body(TokenResponse::class.java)
-                ?: throw RuntimeException("Respuesta nula del endpoint de token de Auth0.")
+                ?: throw Auth0TokenException("Respuesta nula del endpoint de token de Auth0.")
 
             this.accessToken = response.accessToken
             this.expiresAt = Instant.now().plusSeconds(response.expiresIn.toLong())
             logger.info("Nuevo token M2M obtenido. Expira en {} segundos.", response.expiresIn)
         } catch (e: RestClientResponseException) {
             logger.error("Fallo al obtener el token M2M de Auth0 (HTTP ${e.statusCode.value()})", e)
-            throw RuntimeException("Fallo al obtener token M2M de Auth0.")
-        } catch (e: Exception) {
-            logger.error("Fallo de conexión o runtime al obtener token M2M", e)
-            throw RuntimeException("Fallo al obtener token M2M de Auth0.")
+            throw Auth0TokenException("Fallo al obtener token M2M de Auth0.")
+        } catch (e: ResourceAccessException) {
+            logger.error("Fallo de conexión con Auth0 (timeout o red)", e)
+            throw Auth0TokenException("Fallo al obtener token M2M de Auth0.")
         }
     }
 
-    private data class TokenResponse(
-        @get:JsonProperty("access_token") val accessToken: String,
-        @get:JsonProperty("expires_in") val expiresIn: Int,
-        @get:JsonProperty("token_type") val tokenType: String,
-    )
+    private data class TokenResponse(@get:JsonProperty("access_token") val accessToken: String, @get:JsonProperty("expires_in") val expiresIn: Int, @get:JsonProperty("token_type") val tokenType: String)
 }
