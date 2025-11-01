@@ -7,6 +7,11 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${AUTH0_ISSUER_URI:https://dev-c2gyaqqsxa2v3nig.us.auth0.com/}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
 
 snippets:
   base-url: ${SNIPPETS_BASE_URL:http://snippets:8080}
@@ -16,3 +21,14 @@ auth0:
   domain: ${AUTH0_DOMAIN:dev-c2gyaqqsxa2v3nig.us.auth0.com}
   client-id: ${AUTH0_CLIENT_ID}
   client-secret: ${AUTH0_CLIENT_SECRET}
+
+streams:
+  formatting:
+    key: ps.formatting
+    group: formatting-workers
+  linting:
+    key: ps.linting
+    group: linting-workers
+  dlq:
+    formatting: ps.dlq.formatting
+    linting: ps.dlq.linting
