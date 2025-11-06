@@ -38,6 +38,7 @@ import org.printscript.runner.LanguageWiringFactory
 import org.printscript.runner.ProgramIo
 import org.printscript.runner.helpers.VersionMapper
 import org.printscript.token.TokenStream
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
 private const val PASS = "PASS"
@@ -47,6 +48,8 @@ private const val MAX_STEPS = 10000
 
 @Service
 class ExecutionServiceImpl : ExecutionService {
+
+    private val logger = LoggerFactory.getLogger(ExecutionServiceImpl::class.java)
 
     // helpers
     private fun parseVersion(version: String): Version = VersionMapper.parse(version)
@@ -89,6 +92,7 @@ class ExecutionServiceImpl : ExecutionService {
     }
 
     override fun parse(req: ParseReq): ParseRes {
+        logger.info("Request received for parsing content (Language: ${req.language}, Version: ${req.version})")
         requirePrintScript(req.language)
         val wiringInfo = getWiringInfo(req)
         val diags = mutableListOf<DiagnosticDto>()
@@ -109,13 +113,17 @@ class ExecutionServiceImpl : ExecutionService {
             }
         }
         loop(wiringInfo.statementStream)
+        val valid = diags.isEmpty()
+        logger.info("Parsing complete. Valid: $valid, Diagnostics count: ${diags.size}")
         return ParseRes(valid = diags.isEmpty(), diagnostics = diags)
     }
 
     override fun lint(req: LintReq): LintRes {
+        logger.info("Request received for linting content (Language: ${req.language}, Version: ${req.version})")
         requirePrintScript(req.language)
         val wiringInfo = getWiringInfo(req)
         val cfg = resolveAnalyzerConfig(req)
+        logger.debug("Lint configuration resolved: $cfg")
 
         val collector = DiagnosticCollector()
         return when (val lint = wiringInfo.wiring.analyzer.analyze(wiringInfo.statementStream, cfg, collector)) {
