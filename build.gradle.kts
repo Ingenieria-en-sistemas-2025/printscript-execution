@@ -60,6 +60,7 @@ dependencies {
     implementation("org.printscript:cli:$psver")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.2.10"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")

@@ -32,3 +32,7 @@ streams:
   dlq:
     formatting: ps.dlq.formatting
     linting: ps.dlq.linting
+
+newrelic:
+  logs:
+    enabled: true
