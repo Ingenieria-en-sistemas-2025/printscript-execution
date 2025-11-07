@@ -36,13 +36,13 @@ class SecurityConfig(
         .authorizeHttpRequests {
             it
                 // (no necesita auth)
-                .requestMatchers(GET, "/ping").permitAll()
-                .requestMatchers(POST, "/parse").permitAll()
-                .requestMatchers(POST, "/lint").permitAll()
-                .requestMatchers(POST, "/format").permitAll()
-                .requestMatchers(POST, "/run").permitAll()
-                .requestMatchers(POST, "/run-tests").permitAll()
-                .requestMatchers(POST, "/run-test").permitAll()
+                .requestMatchers(GET, "/ping").authenticated()
+                .requestMatchers(POST, "/parse").authenticated()
+                .requestMatchers(POST, "/lint").authenticated()
+                .requestMatchers(POST, "/format").authenticated()
+                .requestMatchers(POST, "/run").authenticated()
+                .requestMatchers(POST, "/run-tests").authenticated()
+                .requestMatchers(POST, "/run-test").authenticated()
                 .anyRequest().authenticated()
         }
         .oauth2ResourceServer { rs ->
