@@ -127,19 +127,27 @@ class ExecutionServiceImpl : ExecutionService {
 
         val collector = DiagnosticCollector()
         return when (val lint = wiringInfo.wiring.analyzer.analyze(wiringInfo.statementStream, cfg, collector)) {
-            is Success -> LintRes(violations = collector.diagnostics.map { diagToDiagnosticDto(it) })
-            is Failure -> throw ExecException(
-                diagnostic = ErrorMapping.toApiDiagnostic(lint.error, "PS-LINT"),
-                msg = lint.error.message,
-            )
+            is Success -> {
+                logger.info("Lint successful. Violations found: ${collector.diagnostics.size}")
+                LintRes(violations = collector.diagnostics.map { diagToDiagnosticDto(it) })
+            }
+            is Failure -> {
+                logger.error("Lint failed: ${lint.error.message}")
+                throw ExecException(
+                    diagnostic = ErrorMapping.toApiDiagnostic(lint.error, "PS-LINT"),
+                    msg = lint.error.message,
+                )
+            }
         }
     }
 
     override fun execute(req: RunReq): RunRes {
+        logger.info("Request received for code execution (Version: ${req.version}, Inputs: ${req.inputs?.size ?: 0})")
         requirePrintScript(req.language)
 
         val interpreterWithStatements = getInterpreterWithStatements(req)
         firstParseError(interpreterWithStatements.statements)?.let { le ->
+            logger.error("Execution failed due to syntax error: ${le.message}")
             throw ExecException(
                 diagnostic = ErrorMapping.toApiDiagnostic(le, code = "PS-SYNTAX"),
                 msg = le.message,
@@ -149,10 +157,12 @@ class ExecutionServiceImpl : ExecutionService {
 
         return when (val result = interpreterWithStatements2.interpreter.run(interpreterWithStatements2.statements)) {
             is Success -> {
+                logger.info("Code execution finished successfully.")
                 RunRes(outputs = result.value.outputs)
             }
             is Failure -> {
                 val le: LabeledError = result.error
+                logger.error("Runtime execution failed: ${le.message}")
                 throw ExecException(
                     diagnostic = ErrorMapping.toApiDiagnostic(le, "PS-RUN"),
                     msg = le.message,
@@ -162,6 +172,7 @@ class ExecutionServiceImpl : ExecutionService {
     }
 
     override fun formatContent(req: FormatReq): FormatRes { // ver de modularizar aca
+        logger.info("Request received for formatting (Version: ${req.version})")
         requirePrintScript(req.language)
         val version = parseVersion(req.version)
         val options = FormatterOptionsResolver.resolve(req)
@@ -171,14 +182,19 @@ class ExecutionServiceImpl : ExecutionService {
         val out = StringBuilder()
 
         if (formatter == null) {
+            logger.warn("Formatter not available for version ${req.version}. Returning original content.")
             out.append(req.content)
             return FormatRes(out.toString())
         }
 
         return when (val fmt = formatter.format(tokenStream, out)) {
-            is Success -> FormatRes(out.toString())
+            is Success -> {
+                logger.info("Formatting complete.")
+                FormatRes(out.toString())
+            }
             is Failure -> {
                 val le = fmt.error
+                logger.error("Formatting failed: ${le.message}")
                 throw ExecException(
                     diagnostic = ErrorMapping.toApiDiagnostic(le, "PS-FORMAT"),
                     msg = le.message,
@@ -241,8 +257,10 @@ class ExecutionServiceImpl : ExecutionService {
     }
 
     override fun runTests(req: RunTestsReq): RunTestsRes {
+        logger.info("Request received for running ${req.testCases.size} tests (Version: ${req.version})")
         requirePrintScript(req.language)
         precheckSyntaxOrNull(req)?.let { allErrors ->
+            logger.warn("Test run aborted due to initial syntax check failure.")
             return RunTestsRes(
                 summary = SummaryDto(total = allErrors.size, passed = 0),
                 results = allErrors,
@@ -250,6 +268,7 @@ class ExecutionServiceImpl : ExecutionService {
         }
         val results = (req.testCases.indices).map { idx -> runOneTestCase(req, idx) }
         val passed = results.count { it.status == PASS }
+        logger.info("Test run complete. Total: ${results.size}, Passed: $passed, Failed/Error: ${results.size - passed}")
         return RunTestsRes(
             summary = SummaryDto(total = results.size, passed = passed),
             results = results,
