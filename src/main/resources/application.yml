@@ -23,6 +23,7 @@ auth0:
   client-secret: ${AUTH0_CLIENT_SECRET}
 
 streams:
+  enabled: true
   formatting:
     key: ps.formatting
     group: formatting-workers
@@ -32,6 +33,7 @@ streams:
   dlq:
     formatting: ps.dlq.formatting
     linting: ps.dlq.linting
+
 
 newrelic:
   logs:

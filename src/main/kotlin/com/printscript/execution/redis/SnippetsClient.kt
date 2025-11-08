@@ -32,6 +32,10 @@ class SnippetsClient(@Value("\${snippets.base-url}") private val base: String, @
             Void::class.java,
         )
     }
+
+    fun markLintFailed(snippetId: UUID) {
+        rest.postForEntity("$base/internal/snippets/$snippetId/lint-failed", null, Void::class.java)
+    }
 }
 
 data class ContentDto(val content: String)

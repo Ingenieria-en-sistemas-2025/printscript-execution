@@ -9,11 +9,12 @@ spring:
           issuer-uri: https://test-auth-issuer.com/
   data:
     redis:
-          host: test-redis
-          port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 streams:
-  enabled: false
+  formatting: ps.formatting
+  linting: ps.linting
 
 auth0:
   client-id: test-client-id

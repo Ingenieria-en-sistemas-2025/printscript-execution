@@ -76,6 +76,38 @@ class LintingConsumer(@param:Qualifier("redisTemplateJson") private val redisJso
             redisJson.opsForStream<String, Any>()
                 .add(StreamRecords.newRecord().ofObject(ev).withStreamKey(dlqKey))
             logger.error("Sent to DLQ={} snippetId={} after attempts={}", dlqKey, ev.snippetId, ev.attempt)
+            try {
+                snippets.markLintFailed(ev.snippetId)
+            } catch (e: RestClientResponseException) {
+                logger.error(
+                    "Notify lint failed (HTTP) snippetId={} status={} body={}",
+                    ev.snippetId,
+                    e.statusCode.value(),
+                    e.responseBodyAsString,
+                    e,
+                )
+            } catch (e: ResourceAccessException) {
+                logger.error(
+                    "Notify lint failed (resource access) snippetId={}: {}",
+                    ev.snippetId,
+                    e.message,
+                    e,
+                )
+            } catch (e: RestClientException) {
+                logger.error(
+                    "Notify lint failed (rest client) snippetId={}: {}",
+                    ev.snippetId,
+                    e.message,
+                    e,
+                )
+            } catch (e: IllegalStateException) {
+                logger.error(
+                    "Notify lint failed (illegal state) snippetId={}: {}",
+                    ev.snippetId,
+                    e.message,
+                    e,
+                )
+            }
         }
     }
 }
