@@ -36,7 +36,7 @@ class SecurityConfig(
         .authorizeHttpRequests {
             it
                 // (no necesita auth)
-                .requestMatchers(GET, "/ping").authenticated()
+                .requestMatchers(GET, "/ping").permitAll()
                 .requestMatchers(POST, "/parse").authenticated()
                 .requestMatchers(POST, "/lint").authenticated()
                 .requestMatchers(POST, "/format").authenticated()
