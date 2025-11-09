@@ -29,12 +29,19 @@ private fun sanitizeKey(raw: String) = raw.trim().trim('"', '\'')
 
 @ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true")
 @Component
-class LintingConsumer(@Qualifier("redisTemplateJson") private val redisJson: RedisTemplate<String, String>, @Value("\${streams.linting.key}") rawStreamKey: String, @Value("\${streams.linting.group}") groupId: String, private val exec: ExecutionService, private val snippets: SnippetsClient, @Value("\${streams.dlq.linting}") private val dlqKey: String) :
-    RedisStreamConsumer<SnippetsLintingRulesUpdated>(
-        sanitizeKey(rawStreamKey),
-        groupId,
-        redisJson,
-    ) {
+class LintingConsumer(
+    @Qualifier("redisTemplateJson")
+    private val redisJson: RedisTemplate<String, String>,
+    @Value("\${streams.linting.key}") rawStreamKey: String,
+    @Value("\${streams.linting.group}") groupId: String,
+    private val exec: ExecutionService,
+    private val snippets: SnippetsClient,
+    @Value("\${streams.dlq.linting}") private val dlqKey: String,
+) : RedisStreamConsumer<SnippetsLintingRulesUpdated>(
+    sanitizeKey(rawStreamKey),
+    groupId,
+    redisJson,
+) {
 
     private val streamKeyForRetry: String = streamKey
 
@@ -97,48 +104,84 @@ class LintingConsumer(@Qualifier("redisTemplateJson") private val redisJson: Red
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun retryOrDlq(ev: SnippetsLintingRulesUpdated) {
-        if (ev.attempt + 1 <= MAX_ATTEMPTS) {
-            val next = ev.copy(attempt = ev.attempt + 1)
-            redisJson.opsForStream<String, Any>()
-                .add(StreamRecords.newRecord().ofObject(next).withStreamKey(streamKeyForRetry))
-            logger.info("Retry scheduled for snippetId={} attempt={}", ev.snippetId, next.attempt)
-        } else {
-            redisJson.opsForStream<String, Any>()
-                .add(StreamRecords.newRecord().ofObject(ev).withStreamKey(dlqKey))
-            logger.error("Sent to DLQ={} snippetId={} after attempts={}", dlqKey, ev.snippetId, ev.attempt)
-            try {
-                snippets.markLintFailed(ev.snippetId)
-            } catch (e: RestClientResponseException) {
-                logger.error(
-                    "Notify lint failed (HTTP) snippetId={} status={} body={}",
+        try {
+            if (ev.attempt + 1 <= MAX_ATTEMPTS) {
+                val next = ev.copy(attempt = ev.attempt + 1)
+                redisJson.opsForStream<String, String>()
+                    .add(
+                        StreamRecords
+                            .newRecord()
+                            .ofObject(next)
+                            .withStreamKey(streamKeyForRetry),
+                    )
+                logger.info(
+                    "Retry scheduled for snippetId={} attempt={}",
                     ev.snippetId,
-                    e.statusCode.value(),
-                    e.responseBodyAsString,
-                    e,
+                    next.attempt,
                 )
-            } catch (e: ResourceAccessException) {
+            } else {
+                redisJson.opsForStream<String, String>()
+                    .add(
+                        StreamRecords
+                            .newRecord()
+                            .ofObject(ev)
+                            .withStreamKey(dlqKey),
+                    )
                 logger.error(
-                    "Notify lint failed (resource access) snippetId={}: {}",
+                    "Sent to DLQ={} snippetId={} after attempts={}",
+                    dlqKey,
                     ev.snippetId,
-                    e.message,
-                    e,
+                    ev.attempt,
                 )
-            } catch (e: RestClientException) {
-                logger.error(
-                    "Notify lint failed (rest client) snippetId={}: {}",
-                    ev.snippetId,
-                    e.message,
-                    e,
-                )
-            } catch (e: IllegalStateException) {
-                logger.error(
-                    "Notify lint failed (illegal state) snippetId={}: {}",
-                    ev.snippetId,
-                    e.message,
-                    e,
-                )
+
+                // Intentamos marcar el lint como fallido
+                safeMarkFailed(ev)
             }
+        } catch (ex: Exception) {
+            logger.error(
+                "Unexpected error retrying snippetId={} attempt={} -> {}",
+                ev.snippetId,
+                ev.attempt,
+                ex.message,
+                ex,
+            )
+        }
+    }
+
+    private fun safeMarkFailed(ev: SnippetsLintingRulesUpdated) {
+        try {
+            snippets.markLintFailed(ev.snippetId)
+        } catch (e: RestClientResponseException) {
+            logger.error(
+                "Notify lint failed (HTTP) snippetId={} status={} body={}",
+                ev.snippetId,
+                e.statusCode.value(),
+                e.responseBodyAsString,
+                e,
+            )
+        } catch (e: ResourceAccessException) {
+            logger.error(
+                "Notify lint failed (resource access) snippetId={}: {}",
+                ev.snippetId,
+                e.message,
+                e,
+            )
+        } catch (e: RestClientException) {
+            logger.error(
+                "Notify lint failed (rest client) snippetId={}: {}",
+                ev.snippetId,
+                e.message,
+                e,
+            )
+        } catch (e: IllegalStateException) {
+            logger.error(
+                "Notify lint failed (illegal state) snippetId={}: {}",
+                ev.snippetId,
+                e.message,
+                e,
+            )
         }
     }
 }
