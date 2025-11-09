@@ -4,6 +4,7 @@ package com.printscript.execution.redis
 import com.printscript.execution.dto.FormatReq
 import com.printscript.execution.service.ExecutionService
 import com.printscript.snippets.redis.events.SnippetsFormattingRulesUpdated
+import com.printscript.snippets.redis.events.SnippetsLintingRulesUpdated
 import org.austral.ingsis.redis.RedisStreamConsumer
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
@@ -14,6 +15,7 @@ import org.springframework.data.redis.connection.stream.StreamRecords
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
 import org.springframework.data.redis.serializer.RedisSerializationContext
+import org.springframework.data.redis.serializer.StringRedisSerializer
 import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.stereotype.Component
 import org.springframework.web.client.ResourceAccessException
@@ -43,20 +45,11 @@ class FormattingConsumer(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @Suppress("UNCHECKED_CAST")
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> {
-        val jackson = GenericJackson2JsonRedisSerializer()
-        val pair = RedisSerializationContext.SerializationPair.fromSerializer(jackson)
-
-        val built = StreamReceiver.StreamReceiverOptions.builder()
-            .pollTimeout(POLL_TIMEOUT)
-            .serializer(pair)
-            .build()
-
-        return built as StreamReceiver.StreamReceiverOptions<
-            String,
-            ObjectRecord<String, SnippetsFormattingRulesUpdated>,
-            >
-    }
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> = StreamReceiver.StreamReceiverOptions.builder()
+        .pollTimeout(POLL_TIMEOUT)
+        .serializer(RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer()))
+        .targetType(SnippetsFormattingRulesUpdated::class.java)
+        .build()
 
     override fun onMessage(record: ObjectRecord<String, SnippetsFormattingRulesUpdated>) {
         val event = record.value

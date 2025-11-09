@@ -14,6 +14,7 @@ import org.springframework.data.redis.connection.stream.StreamRecords
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
 import org.springframework.data.redis.serializer.RedisSerializationContext
+import org.springframework.data.redis.serializer.StringRedisSerializer
 import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.stereotype.Component
 import org.springframework.web.client.ResourceAccessException
@@ -57,20 +58,11 @@ class LintingConsumer(
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> {
-        val jackson = GenericJackson2JsonRedisSerializer()
-        val pair = RedisSerializationContext.SerializationPair.fromSerializer(jackson)
-
-        val built = StreamReceiver.StreamReceiverOptions.builder()
-            .pollTimeout(POLL_TIMEOUT)
-            .serializer(pair)
-            .build()
-
-        return built as StreamReceiver.StreamReceiverOptions<
-            String,
-            ObjectRecord<String, SnippetsLintingRulesUpdated>,
-            >
-    }
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> = StreamReceiver.StreamReceiverOptions.builder()
+        .pollTimeout(POLL_TIMEOUT)
+        .serializer(RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer()))
+        .targetType(SnippetsLintingRulesUpdated::class.java)
+        .build()
 
     override fun onMessage(record: ObjectRecord<String, SnippetsLintingRulesUpdated>) {
         val event = record.value
