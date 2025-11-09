@@ -27,7 +27,7 @@ private val POLL_TIMEOUT: Duration = Duration.ofSeconds(POLL_TIMEOUT_SECONDS)
 
 private fun sanitizeKey(raw: String) = raw.trim().trim('"', '\'')
 
-@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true")
+@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
 @Component
 class FormattingConsumer(
     @Qualifier("redisTemplateJson")
