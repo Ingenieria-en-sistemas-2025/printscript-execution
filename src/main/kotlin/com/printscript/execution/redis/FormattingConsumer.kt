@@ -33,7 +33,7 @@ private fun sanitizeKey(raw: String) = raw.trim().trim('"', '\'')
 @Component
 class FormattingConsumer(
     @Qualifier("redisTemplateJson")
-    private val redisJson: RedisTemplate<String, String>,
+    private val redisJson: RedisTemplate<String, Any>,
     @Value("\${streams.formatting.key}") rawStreamKey: String,
     @Value("\${streams.formatting.group}") groupId: String,
     private val exec: ExecutionService,
@@ -45,11 +45,20 @@ class FormattingConsumer(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     @Suppress("UNCHECKED_CAST")
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> = StreamReceiver.StreamReceiverOptions.builder()
-        .pollTimeout(POLL_TIMEOUT)
-        .serializer(RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer()))
-        .targetType(SnippetsFormattingRulesUpdated::class.java)
-        .build()
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> {
+        val serializer = RedisSerializationContext
+            .SerializationPair
+            .fromSerializer(GenericJackson2JsonRedisSerializer())
+
+        val opts = StreamReceiver.StreamReceiverOptions
+            .builder()
+            .pollTimeout(POLL_TIMEOUT)
+            .serializer(serializer)
+            .targetType(SnippetsFormattingRulesUpdated::class.java)
+            .build()
+
+        return opts as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>>
+    }
 
     override fun onMessage(record: ObjectRecord<String, SnippetsFormattingRulesUpdated>) {
         val event = record.value

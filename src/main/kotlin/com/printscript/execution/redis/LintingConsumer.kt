@@ -32,7 +32,7 @@ private fun sanitizeKey(raw: String) = raw.trim().trim('"', '\'')
 @Component
 class LintingConsumer(
     @Qualifier("redisTemplateJson")
-    private val redisJson: RedisTemplate<String, String>,
+    private val redisJson: RedisTemplate<String, Any>,
     @Value("\${streams.linting.key}") rawStreamKey: String,
     @Value("\${streams.linting.group}") groupId: String,
     private val exec: ExecutionService,
@@ -54,11 +54,20 @@ class LintingConsumer(
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> = StreamReceiver.StreamReceiverOptions.builder()
-        .pollTimeout(POLL_TIMEOUT)
-        .serializer(RedisSerializationContext.SerializationPair.fromSerializer(StringRedisSerializer()))
-        .targetType(SnippetsLintingRulesUpdated::class.java)
-        .build()
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> {
+        val serializer = RedisSerializationContext
+            .SerializationPair
+            .fromSerializer(GenericJackson2JsonRedisSerializer())
+
+        val opts = StreamReceiver.StreamReceiverOptions
+            .builder()
+            .pollTimeout(POLL_TIMEOUT)
+            .serializer(serializer)
+            .targetType(SnippetsLintingRulesUpdated::class.java)
+            .build()
+
+        return opts as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>>
+    }
 
     override fun onMessage(record: ObjectRecord<String, SnippetsLintingRulesUpdated>) {
         val event = record.value

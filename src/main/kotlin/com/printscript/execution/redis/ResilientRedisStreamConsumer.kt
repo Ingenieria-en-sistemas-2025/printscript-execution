@@ -13,7 +13,7 @@ import reactor.util.retry.Retry
 import java.net.InetAddress
 import java.time.Duration
 
-abstract class ResilientRedisStreamConsumer<Value : Any>(protected val streamKey: String, protected val groupId: String, private val redis: RedisTemplate<String, String>) {
+abstract class ResilientRedisStreamConsumer<Value : Any>(protected val streamKey: String, protected val groupId: String, private val redis: RedisTemplate<String, Any>) {
     protected abstract fun onMessage(record: ObjectRecord<String, Value>)
     protected abstract fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, Value>>
 
