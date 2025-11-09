@@ -51,7 +51,10 @@ abstract class ResilientRedisStreamConsumer<Value : Any>(protected val streamKey
             )
             .doOnSubscribe { logger.info("[{} / {}] SUBSCRIBED", groupId, streamKey) }
             .doOnNext { rec -> logger.info("[{} / {}] DELIVER id={} type={}", groupId, streamKey, rec.id.value, rec.value?.javaClass?.name) }
-            .doOnError { t -> logger.error("[{} / {}] STREAM ERROR", groupId, streamKey, t) } // <-- stacktrace entero
+            .doOnError { t ->
+                logger.error("[{} / {}] STREAM ERROR: {}", groupId, streamKey, t.message, t) // mensaje + stacktrace
+                t.printStackTrace()
+            }
             .retryWhen(
                 Retry.backoff(MAX_RETRIES, INITIAL_BACKOFF).maxBackoff(MAX_BACKOFF).jitter(JITTER_FACTOR),
             )
