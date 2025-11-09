@@ -12,6 +12,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.connection.stream.StreamRecords
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
+import org.springframework.data.redis.serializer.RedisSerializationContext
 import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.stereotype.Component
 import org.springframework.web.client.ResourceAccessException
@@ -28,12 +30,24 @@ private val POLL_TIMEOUT: Duration = Duration.ofSeconds(POLL_TIMEOUT_SECONDS)
 class FormattingConsumer(@Qualifier("redisTemplateJson") private val redisJson: RedisTemplate<String, String>, @Value("\${streams.formatting.key}") streamKey: String, @Value("\${streams.formatting.group}") groupId: String, private val exec: ExecutionService, private val snippets: SnippetsClient, @Value("\${streams.dlq.formatting}") private val dlqKey: String) :
     RedisStreamConsumer<SnippetsFormattingRulesUpdated>(streamKey, groupId, redisJson) {
 
+    private val streamKeyForRetry: String = streamKey
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> = StreamReceiver.StreamReceiverOptions.builder()
-        .pollTimeout(POLL_TIMEOUT)
-        .targetType(SnippetsFormattingRulesUpdated::class.java)
-        .build()
+    @Suppress("UNCHECKED_CAST")
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> {
+        val jackson = GenericJackson2JsonRedisSerializer()
+        val pair = RedisSerializationContext.SerializationPair.fromSerializer(jackson)
+
+        val built = StreamReceiver.StreamReceiverOptions.builder()
+            .pollTimeout(POLL_TIMEOUT)
+            .serializer(pair)
+            .build()
+
+        return built as StreamReceiver.StreamReceiverOptions<
+            String,
+            ObjectRecord<String, SnippetsFormattingRulesUpdated>,
+            >
+    }
 
     override fun onMessage(record: ObjectRecord<String, SnippetsFormattingRulesUpdated>) {
         val event = record.value
@@ -51,11 +65,9 @@ class FormattingConsumer(@Qualifier("redisTemplateJson") private val redisJson: 
             )
             snippets.saveFormatted(event.snippetId, res.formattedContent)
         } catch (e: RestClientResponseException) {
-            // Errores HTTP 4xx/5xx al hablar con Snippets u otro servicio
             logger.warn("HTTP error formatting snippetId={} status={} body={}", event.snippetId, e.statusCode.value(), e.responseBodyAsString, e)
             retryOrDlq(event)
         } catch (e: ResourceAccessException) {
-            // Timeouts / desconexiones
             logger.warn("Resource access error formatting snippetId={}: {}", event.snippetId, e.message, e)
             retryOrDlq(event)
         } catch (e: RestClientException) {
@@ -77,7 +89,7 @@ class FormattingConsumer(@Qualifier("redisTemplateJson") private val redisJson: 
         if (ev.attempt + 1 <= MAX_ATTEMPTS) {
             val next = ev.copy(attempt = ev.attempt + 1)
             redisJson.opsForStream<String, Any>()
-                .add(StreamRecords.newRecord().ofObject(next).withStreamKey(streamKey))
+                .add(StreamRecords.newRecord().ofObject(next).withStreamKey(streamKeyForRetry))
             logger.info("Retry scheduled for snippetId={} attempt={}", ev.snippetId, next.attempt)
         } else {
             redisJson.opsForStream<String, Any>()

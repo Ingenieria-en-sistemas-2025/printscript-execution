@@ -1,8 +1,8 @@
-// LintingConsumer.kt
 package com.printscript.execution.redis
 
 import com.printscript.execution.dto.LintReq
 import com.printscript.execution.service.ExecutionService
+import com.printscript.snippets.redis.events.SnippetsFormattingRulesUpdated
 import com.printscript.snippets.redis.events.SnippetsLintingRulesUpdated
 import org.austral.ingsis.redis.RedisStreamConsumer
 import org.slf4j.LoggerFactory
@@ -12,6 +12,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.connection.stream.StreamRecords
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
+import org.springframework.data.redis.serializer.RedisSerializationContext
 import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.stereotype.Component
 import org.springframework.web.client.ResourceAccessException
@@ -28,12 +30,25 @@ private val POLL_TIMEOUT: Duration = Duration.ofSeconds(POLL_TIMEOUT_SECONDS)
 class LintingConsumer(@Qualifier("redisTemplateJson") private val redisJson: RedisTemplate<String, String>, @Value("\${streams.linting.key}") streamKey: String, @Value("\${streams.linting.group}") groupId: String, private val exec: ExecutionService, private val snippets: SnippetsClient, @Value("\${streams.dlq.linting}") private val dlqKey: String) :
     RedisStreamConsumer<SnippetsLintingRulesUpdated>(streamKey, groupId, redisJson) {
 
+    private val streamKeyForRetry: String = streamKey
+
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> = StreamReceiver.StreamReceiverOptions.builder()
-        .pollTimeout(POLL_TIMEOUT)
-        .targetType(SnippetsLintingRulesUpdated::class.java)
-        .build()
+    @Suppress("UNCHECKED_CAST")
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> {
+        val jackson = GenericJackson2JsonRedisSerializer()
+        val pair = RedisSerializationContext.SerializationPair.fromSerializer(jackson)
+
+        val built = StreamReceiver.StreamReceiverOptions.builder()
+            .pollTimeout(POLL_TIMEOUT)
+            .serializer(pair)
+            .build()
+
+        return built as StreamReceiver.StreamReceiverOptions<
+            String,
+            ObjectRecord<String, SnippetsLintingRulesUpdated>,
+            >
+    }
 
     override fun onMessage(record: ObjectRecord<String, SnippetsLintingRulesUpdated>) {
         val event = record.value
@@ -71,7 +86,7 @@ class LintingConsumer(@Qualifier("redisTemplateJson") private val redisJson: Red
         if (ev.attempt + 1 <= MAX_ATTEMPTS) {
             val next = ev.copy(attempt = ev.attempt + 1)
             redisJson.opsForStream<String, Any>()
-                .add(StreamRecords.newRecord().ofObject(next).withStreamKey(streamKey))
+                .add(StreamRecords.newRecord().ofObject(next).withStreamKey(streamKeyForRetry))
             logger.info("Retry scheduled for snippetId={} attempt={}", ev.snippetId, next.attempt)
         } else {
             redisJson.opsForStream<String, Any>()

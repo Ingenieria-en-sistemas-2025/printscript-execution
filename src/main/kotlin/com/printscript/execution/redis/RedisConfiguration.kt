@@ -24,19 +24,14 @@ class RedisConfiguration(@Value("\${spring.data.redis.host}") private val host: 
         afterPropertiesSet()
     }
 
-    // Template para publicar objetos en retries/DLQ con JSON
     @Bean("redisTemplateJson")
-    fun redisTemplateJson(cf: RedisConnectionFactory): RedisTemplate<String, String> {
-        val t = RedisTemplate<String, String>()
-        t.setConnectionFactory(cf)
-
+    fun redisTemplateJson(cf: RedisConnectionFactory): RedisTemplate<String, String> = RedisTemplate<String, String>().apply {
+        setConnectionFactory(cf)
         val json = GenericJackson2JsonRedisSerializer()
-        t.keySerializer = StringRedisSerializer()
-        t.hashKeySerializer = StringRedisSerializer()
-        t.valueSerializer = json
-        t.hashValueSerializer = json
-
-        t.afterPropertiesSet()
-        return t
+        keySerializer = StringRedisSerializer()
+        hashKeySerializer = StringRedisSerializer()
+        valueSerializer = json
+        hashValueSerializer = json
+        afterPropertiesSet()
     }
 }
