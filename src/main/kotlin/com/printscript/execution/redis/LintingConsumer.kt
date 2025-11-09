@@ -38,11 +38,7 @@ class LintingConsumer(
     private val exec: ExecutionService,
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.linting}") private val dlqKey: String,
-) : RedisStreamConsumer<SnippetsLintingRulesUpdated>(
-    sanitizeKey(rawStreamKey),
-    groupId,
-    redisJson,
-) {
+) : ResilientRedisStreamConsumer<SnippetsLintingRulesUpdated>(sanitizeKey(rawStreamKey), groupId, redisJson) {
 
     private val streamKeyForRetry: String = streamKey
 
