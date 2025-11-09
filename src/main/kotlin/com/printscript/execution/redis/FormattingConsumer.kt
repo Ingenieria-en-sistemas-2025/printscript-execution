@@ -4,7 +4,6 @@ package com.printscript.execution.redis
 import com.printscript.execution.dto.FormatReq
 import com.printscript.execution.service.ExecutionService
 import com.printscript.snippets.redis.events.SnippetsFormattingRulesUpdated
-import com.printscript.snippets.redis.events.SnippetsLintingRulesUpdated
 import org.austral.ingsis.redis.RedisStreamConsumer
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
@@ -51,7 +50,7 @@ class FormattingConsumer(
         return StreamReceiver.StreamReceiverOptions.builder()
             .pollTimeout(POLL_TIMEOUT)
             .serializer(pair)
-            .targetType(SnippetsLintingRulesUpdated::class.java)
+            .targetType(SnippetsFormattingRulesUpdated::class.java) // <-- FIX ACÁ
             .build() as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>>
     }
 

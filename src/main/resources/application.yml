@@ -48,7 +48,8 @@ logging:
     org.springframework.data.redis.stream: DEBUG
     org.springframework.data.redis.serializer: DEBUG
     org.springframework.data.redis.connection: DEBUG
-    io.lettuce.core: INFO           # pasar a DEBUG si sospechás networking
-    reactor.core.publisher: INFO    # útil para ver reintentos/retries
+    io.lettuce.core: DEBUG           # pasar a DEBUG si sospechás networking
+    reactor.core.publisher: INFO
+    org.springframework.data.redis: DEBUG
   pattern:
     console: "%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
