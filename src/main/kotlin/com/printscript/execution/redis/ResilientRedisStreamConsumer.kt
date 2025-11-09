@@ -14,7 +14,20 @@ import reactor.util.retry.Retry
 import java.net.InetAddress
 import java.time.Duration
 
-abstract class ResilientRedisStreamConsumer<Value : Any>(protected val streamKey: String, protected val groupId: String, private val redis: RedisTemplate<String, Any>) {
+/**
+ * Consumidor genérico y resiliente de Redis Streams con:
+ * - Autocreación de stream + consumer group si no existen (MKSTREAM implícito).
+ * - Logs consistentes (info/warn/error) con detalles.
+ * - Backoff infinito con jitter ante errores.
+ */
+abstract class ResilientRedisStreamConsumer<Value : Any>(rawStreamKey: String, rawGroupId: String, private val redis: RedisTemplate<String, Any>) {
+
+    // Limpia comillas y whitespace en extremos
+    private fun clean(s: String) = s.trim().trim('"', '\'')
+
+    protected val streamKey: String = clean(rawStreamKey)
+    protected val groupId: String = clean(rawGroupId)
+
     private val logger = LoggerFactory.getLogger(javaClass)
 
     protected abstract fun onMessage(record: ObjectRecord<String, Value>)
@@ -25,24 +38,24 @@ abstract class ResilientRedisStreamConsumer<Value : Any>(protected val streamKey
     @PostConstruct
     @Suppress("TooGenericExceptionCaught")
     fun subscription() {
-        val opts = options()
+        // Log defensivo para ver exactamente qué clave se usa
+        logger.info("Starting consumer: stream='{}' group='{}'", streamKey, groupId)
 
         try {
-            val exists = consumerGroupExists(streamKey, groupId)
-            if (!exists) {
-                println("Consumer group $groupId for stream $streamKey doesn't exist. Creating...")
+            if (!consumerGroupExists(streamKey, groupId)) {
+                logger.info("Group '{}' not found on stream '{}'. Creating…", groupId, streamKey)
                 createConsumerGroup(streamKey, groupId)
             } else {
-                println("Consumer group $groupId for stream $streamKey exists!")
+                logger.info("Group '{}' already exists on stream '{}'", groupId, streamKey)
             }
         } catch (e: Exception) {
-            println("Exception: $e")
-            println("Stream $streamKey doesn't exist. Creating stream $streamKey and group $groupId")
-            redis.opsForStream<Any, Any>().createGroup(streamKey, groupId)
+            logger.warn("Check/create group failed for stream='{}' group='{}': {}", streamKey, groupId, e.message, e)
+            logger.info("Fallback: creating stream/group with MKSTREAM")
+            createConsumerGroup(streamKey, groupId)
         }
 
         val factory = redis.connectionFactory as ReactiveRedisConnectionFactory
-        val container = StreamReceiver.create(factory, opts)
+        val container = StreamReceiver.create(factory, options())
 
         flow = container
             .receiveAutoAck(
@@ -51,23 +64,28 @@ abstract class ResilientRedisStreamConsumer<Value : Any>(protected val streamKey
             )
             .doOnSubscribe { logger.info("[{} / {}] SUBSCRIBED", groupId, streamKey) }
             .doOnNext { rec -> logger.info("[{} / {}] DELIVER id={} type={}", groupId, streamKey, rec.id.value, rec.value?.javaClass?.name) }
-            .doOnError { t ->
-                logger.error("[{} / {}] STREAM ERROR: {}", groupId, streamKey, t.message, t) // mensaje + stacktrace
-                t.printStackTrace()
-            }
+            .doOnError { t -> logger.error("[{} / {}] STREAM ERROR: {}", groupId, streamKey, t.message, t) }
             .retryWhen(
                 Retry.backoff(MAX_RETRIES, INITIAL_BACKOFF).maxBackoff(MAX_BACKOFF).jitter(JITTER_FACTOR),
             )
 
         flow.subscribe(
-            { rec -> this.onMessage(rec) },
-            { t -> System.err.println("[$groupId/$streamKey] subscription terminated: ${t.message}") },
+            { rec -> onMessage(rec) },
+            { t -> logger.error("[{}/{}] subscription terminated: {}", groupId, streamKey, t.message, t) },
         )
     }
 
-    private fun createConsumerGroup(streamKey: String, groupId: String): String = redis.opsForStream<Any, Any>().createGroup(streamKey, groupId)
+    private fun createConsumerGroup(streamKey: String, groupId: String) {
+        redis.opsForStream<Any, Any>()
+            .createGroup(streamKey, ReadOffset.latest(), groupId) // XGROUP CREATE … $ MKSTREAM
+        logger.info("Created group='{}' on stream='{}'", groupId, streamKey)
+    }
 
-    private fun consumerGroupExists(stream: String, group: String): Boolean = redis.opsForStream<Any, Any>().groups(stream).any { it.groupName() == group }
+    private fun consumerGroupExists(stream: String, group: String): Boolean = try {
+        redis.opsForStream<Any, Any>().groups(stream).any { it.groupName() == group }
+    } catch (_: Exception) {
+        false
+    }
 
     private companion object {
         const val MAX_RETRIES: Long = Long.MAX_VALUE
