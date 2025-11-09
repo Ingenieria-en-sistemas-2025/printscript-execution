@@ -39,6 +39,7 @@ class FormattingConsumer(
     private val exec: ExecutionService,
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.formatting}") private val dlqKey: String,
+    private val genericJsonSerializer: GenericJackson2JsonRedisSerializer,
 ) : ResilientRedisStreamConsumer<SnippetsFormattingRulesUpdated>(sanitizeKey(rawStreamKey), groupId, redisJson) {
 
     private val streamKeyForRetry: String = streamKey
@@ -46,18 +47,12 @@ class FormattingConsumer(
 
     @Suppress("UNCHECKED_CAST")
     override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> {
-        val serializer = RedisSerializationContext
-            .SerializationPair
-            .fromSerializer(GenericJackson2JsonRedisSerializer())
-
-        val opts = StreamReceiver.StreamReceiverOptions
-            .builder()
+        val pair = RedisSerializationContext.SerializationPair.fromSerializer(genericJsonSerializer)
+        return StreamReceiver.StreamReceiverOptions.builder()
             .pollTimeout(POLL_TIMEOUT)
-            .serializer(serializer)
-            .targetType(SnippetsFormattingRulesUpdated::class.java)
-            .build()
-
-        return opts as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>>
+            .serializer(pair)
+            .targetType(SnippetsLintingRulesUpdated::class.java)
+            .build() as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>>
     }
 
     override fun onMessage(record: ObjectRecord<String, SnippetsFormattingRulesUpdated>) {

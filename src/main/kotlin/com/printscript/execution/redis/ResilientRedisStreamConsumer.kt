@@ -1,6 +1,7 @@
 package com.printscript.execution.redis
 
 import jakarta.annotation.PostConstruct
+import org.slf4j.LoggerFactory
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory
 import org.springframework.data.redis.connection.stream.Consumer
 import org.springframework.data.redis.connection.stream.ObjectRecord
@@ -14,6 +15,8 @@ import java.net.InetAddress
 import java.time.Duration
 
 abstract class ResilientRedisStreamConsumer<Value : Any>(protected val streamKey: String, protected val groupId: String, private val redis: RedisTemplate<String, Any>) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     protected abstract fun onMessage(record: ObjectRecord<String, Value>)
     protected abstract fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, Value>>
 
@@ -46,13 +49,11 @@ abstract class ResilientRedisStreamConsumer<Value : Any>(protected val streamKey
                 Consumer.from(groupId, InetAddress.getLocalHost().hostName),
                 StreamOffset.create(streamKey, ReadOffset.lastConsumed()),
             )
-            .doOnSubscribe { println("[$groupId/$streamKey] subscribed") }
-            .doOnError { t -> System.err.println("[$groupId/$streamKey] stream error: ${t.message}") }
+            .doOnSubscribe { logger.info("[{} / {}] SUBSCRIBED", groupId, streamKey) }
+            .doOnNext { rec -> logger.info("[{} / {}] DELIVER id={} type={}", groupId, streamKey, rec.id.value, rec.value?.javaClass?.name) }
+            .doOnError { t -> logger.error("[{} / {}] STREAM ERROR", groupId, streamKey, t) } // <-- stacktrace entero
             .retryWhen(
-                Retry
-                    .backoff(MAX_RETRIES, INITIAL_BACKOFF)
-                    .maxBackoff(MAX_BACKOFF)
-                    .jitter(JITTER_FACTOR),
+                Retry.backoff(MAX_RETRIES, INITIAL_BACKOFF).maxBackoff(MAX_BACKOFF).jitter(JITTER_FACTOR),
             )
 
         flow.subscribe(

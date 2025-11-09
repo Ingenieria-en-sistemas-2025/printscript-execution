@@ -38,6 +38,7 @@ class LintingConsumer(
     private val exec: ExecutionService,
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.linting}") private val dlqKey: String,
+    private val genericJsonSerializer: GenericJackson2JsonRedisSerializer,
 ) : ResilientRedisStreamConsumer<SnippetsLintingRulesUpdated>(
     sanitizeKey(rawStreamKey),
     groupId,
@@ -58,18 +59,12 @@ class LintingConsumer(
 
     @Suppress("UNCHECKED_CAST")
     override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> {
-        val serializer = RedisSerializationContext
-            .SerializationPair
-            .fromSerializer(GenericJackson2JsonRedisSerializer())
-
-        val opts = StreamReceiver.StreamReceiverOptions
-            .builder()
+        val pair = RedisSerializationContext.SerializationPair.fromSerializer(genericJsonSerializer)
+        return StreamReceiver.StreamReceiverOptions.builder()
             .pollTimeout(POLL_TIMEOUT)
-            .serializer(serializer)
+            .serializer(pair)
             .targetType(SnippetsLintingRulesUpdated::class.java)
-            .build()
-
-        return opts as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>>
+            .build() as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>>
     }
 
     override fun onMessage(record: ObjectRecord<String, SnippetsLintingRulesUpdated>) {
