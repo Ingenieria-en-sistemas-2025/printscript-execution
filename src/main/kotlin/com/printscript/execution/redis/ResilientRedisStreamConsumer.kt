@@ -33,13 +33,15 @@ abstract class ResilientRedisStreamConsumer<Value : Any>(rawStreamKey: String, r
     protected abstract fun onMessage(record: ObjectRecord<String, Value>)
     protected abstract fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, Value>>
 
+    private val consumerName: String =
+        (System.getenv("HOSTNAME") ?: "ps-execution") + ":" + ProcessHandle.current().pid()
+
     private lateinit var flow: Flux<ObjectRecord<String, Value>>
 
     @PostConstruct
     @Suppress("TooGenericExceptionCaught")
     fun subscription() {
-        // Log defensivo para ver exactamente qué clave se usa
-        logger.info("Starting consumer: stream='{}' group='{}'", streamKey, groupId)
+        logger.info("Starting consumer: stream='{}' group='{}' consumer='{}'", streamKey, groupId, consumerName)
 
         try {
             if (!consumerGroupExists(streamKey, groupId)) {
@@ -59,14 +61,20 @@ abstract class ResilientRedisStreamConsumer<Value : Any>(rawStreamKey: String, r
 
         flow = container
             .receiveAutoAck(
-                Consumer.from(groupId, InetAddress.getLocalHost().hostName),
+                Consumer.from(groupId, consumerName),
                 StreamOffset.create(streamKey, ReadOffset.lastConsumed()),
             )
-            .doOnSubscribe { logger.info("[{} / {}] SUBSCRIBED", groupId, streamKey) }
-            .doOnNext { rec -> logger.info("[{} / {}] DELIVER id={} type={}", groupId, streamKey, rec.id.value, rec.value?.javaClass?.name) }
-            .doOnError { t -> logger.error("[{} / {}] STREAM ERROR: {}", groupId, streamKey, t.message, t) }
+            .doOnSubscribe { logger.info("[{} / {}] SUBSCRIBED as {}", groupId, streamKey, consumerName) }
+            .doOnNext { rec ->
+                logger.info("[{} / {}] DELIVER id={} type={}", groupId, streamKey, rec.id.value, rec.value?.javaClass?.name)
+            }
+            .doOnError { t ->
+                logger.error("[{} / {}] STREAM ERROR ({}): {}", groupId, streamKey, t.javaClass.simpleName, t.message, t)
+            }
             .retryWhen(
-                Retry.backoff(MAX_RETRIES, INITIAL_BACKOFF).maxBackoff(MAX_BACKOFF).jitter(JITTER_FACTOR),
+                Retry.backoff(MAX_RETRIES, INITIAL_BACKOFF)
+                    .maxBackoff(MAX_BACKOFF)
+                    .jitter(JITTER_FACTOR),
             )
 
         flow.subscribe(
@@ -76,8 +84,10 @@ abstract class ResilientRedisStreamConsumer<Value : Any>(rawStreamKey: String, r
     }
 
     private fun createConsumerGroup(streamKey: String, groupId: String) {
-        redis.opsForStream<Any, Any>()
-            .createGroup(streamKey, ReadOffset.latest(), groupId) // XGROUP CREATE … $ MKSTREAM
+        try {
+            redis.opsForStream<String, Any>().add(streamKey, mapOf("init" to "1"))
+        } catch (_: Exception) {}
+        redis.opsForStream<Any, Any>().createGroup(streamKey, ReadOffset.latest(), groupId)
         logger.info("Created group='{}' on stream='{}'", groupId, streamKey)
     }
 

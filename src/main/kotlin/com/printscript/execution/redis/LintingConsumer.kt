@@ -70,7 +70,8 @@ class LintingConsumer(
     override fun onMessage(record: ObjectRecord<String, SnippetsLintingRulesUpdated>) {
         val event = record.value
         try {
-            val content = snippets.getContent(event.snippetId)
+            val content =
+                snippets.getContent(event.snippetId)
             val res = exec.lint(
                 LintReq(
                     language = event.language,
