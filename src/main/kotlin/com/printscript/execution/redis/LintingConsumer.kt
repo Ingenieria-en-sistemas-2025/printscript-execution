@@ -25,8 +25,8 @@ private val POLL_TIMEOUT: Duration = Duration.ofSeconds(POLL_TIMEOUT_SECONDS)
 
 @ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
 @Component
-class LintingConsumer(@param:Qualifier("redisTemplateJson") private val redisJson: RedisTemplate<String, Any>, redisStr: RedisTemplate<String, String>, @Value("\${streams.linting.key}") streamKey: String, @Value("\${streams.linting.group}") groupId: String, private val exec: ExecutionService, private val snippets: SnippetsClient, @Value("\${streams.dlq.linting}") private val dlqKey: String) :
-    RedisStreamConsumer<SnippetsLintingRulesUpdated>(streamKey, groupId, redisStr) {
+class LintingConsumer(@Qualifier("redisTemplateJson") private val redisJson: RedisTemplate<String, String>, @Value("\${streams.linting.key}") streamKey: String, @Value("\${streams.linting.group}") groupId: String, private val exec: ExecutionService, private val snippets: SnippetsClient, @Value("\${streams.dlq.linting}") private val dlqKey: String) :
+    RedisStreamConsumer<SnippetsLintingRulesUpdated>(streamKey, groupId, redisJson) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
