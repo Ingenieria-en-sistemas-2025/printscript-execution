@@ -25,10 +25,16 @@ private const val MAX_ATTEMPTS = 3
 private const val POLL_TIMEOUT_SECONDS = 10L
 private val POLL_TIMEOUT: Duration = Duration.ofSeconds(POLL_TIMEOUT_SECONDS)
 
-@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
+private fun sanitizeKey(raw: String) = raw.trim().trim('"', '\'')
+
+@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true")
 @Component
-class FormattingConsumer(@Qualifier("redisTemplateJson") private val redisJson: RedisTemplate<String, String>, @Value("\${streams.formatting.key}") streamKey: String, @Value("\${streams.formatting.group}") groupId: String, private val exec: ExecutionService, private val snippets: SnippetsClient, @Value("\${streams.dlq.formatting}") private val dlqKey: String) :
-    RedisStreamConsumer<SnippetsFormattingRulesUpdated>(streamKey, groupId, redisJson) {
+class FormattingConsumer(@Qualifier("redisTemplateJson") private val redisJson: RedisTemplate<String, String>, @Value("\${streams.formatting.key}") rawStreamKey: String, @Value("\${streams.formatting.group}") groupId: String, private val exec: ExecutionService, private val snippets: SnippetsClient, @Value("\${streams.dlq.formatting}") private val dlqKey: String) :
+    RedisStreamConsumer<SnippetsFormattingRulesUpdated>(
+        sanitizeKey(rawStreamKey),
+        groupId,
+        redisJson,
+    ) {
 
     private val streamKeyForRetry: String = streamKey
     private val logger = LoggerFactory.getLogger(javaClass)

@@ -1,20 +1,18 @@
 spring:
-  profiles:
-    active: test
 
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: https://test-auth-issuer.com/
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
 
 streams:
-  formatting: ps.formatting
-  linting: ps.linting
+  enabled: false
 
 auth0:
   client-id: test-client-id
@@ -24,3 +22,4 @@ auth0:
 
 snippets:
   base-url: http://test-snippets:8080
+

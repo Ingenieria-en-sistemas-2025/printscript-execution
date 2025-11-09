@@ -25,14 +25,29 @@ private const val MAX_ATTEMPTS = 3
 private const val POLL_TIMEOUT_SECONDS = 10L
 private val POLL_TIMEOUT: Duration = Duration.ofSeconds(POLL_TIMEOUT_SECONDS)
 
-@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
+private fun sanitizeKey(raw: String) = raw.trim().trim('"', '\'')
+
+@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true")
 @Component
-class LintingConsumer(@Qualifier("redisTemplateJson") private val redisJson: RedisTemplate<String, String>, @Value("\${streams.linting.key}") streamKey: String, @Value("\${streams.linting.group}") groupId: String, private val exec: ExecutionService, private val snippets: SnippetsClient, @Value("\${streams.dlq.linting}") private val dlqKey: String) :
-    RedisStreamConsumer<SnippetsLintingRulesUpdated>(streamKey, groupId, redisJson) {
+class LintingConsumer(@Qualifier("redisTemplateJson") private val redisJson: RedisTemplate<String, String>, @Value("\${streams.linting.key}") rawStreamKey: String, @Value("\${streams.linting.group}") groupId: String, private val exec: ExecutionService, private val snippets: SnippetsClient, @Value("\${streams.dlq.linting}") private val dlqKey: String) :
+    RedisStreamConsumer<SnippetsLintingRulesUpdated>(
+        sanitizeKey(rawStreamKey),
+        groupId,
+        redisJson,
+    ) {
 
     private val streamKeyForRetry: String = streamKey
 
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    init {
+        logger.info(
+            "LintingConsumer streamKey='{}' group='{}' dlq='{}'",
+            streamKeyForRetry,
+            groupId,
+            dlqKey,
+        )
+    }
 
     @Suppress("UNCHECKED_CAST")
     override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> {
