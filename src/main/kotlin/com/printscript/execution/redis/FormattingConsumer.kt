@@ -3,6 +3,7 @@ package com.printscript.execution.redis
 
 import com.printscript.execution.dto.FormatReq
 import com.printscript.execution.service.ExecutionService
+import com.printscript.snippets.redis.events.SnippetsFormattingRulesUpdated
 import org.austral.ingsis.redis.RedisStreamConsumer
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
