@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.context.annotation.Profile
 import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.connection.stream.StreamRecords
 import org.springframework.data.redis.core.RedisTemplate
@@ -26,10 +27,8 @@ private const val MAX_ATTEMPTS = 3
 private const val POLL_TIMEOUT_SECONDS = 10L
 private val POLL_TIMEOUT: Duration = Duration.ofSeconds(POLL_TIMEOUT_SECONDS)
 
-private fun sanitizeKey(raw: String) = raw.trim().trim('"', '\'')
-
-@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
 @Component
+@Profile("!test")
 class LintingConsumer(
     @Qualifier("redisTemplateJson")
     private val redisJson: RedisTemplate<String, Any>,
@@ -40,7 +39,7 @@ class LintingConsumer(
     @Value("\${streams.dlq.linting}") private val dlqKey: String,
     private val genericJsonSerializer: GenericJackson2JsonRedisSerializer,
 ) : ResilientRedisStreamConsumer<SnippetsLintingRulesUpdated>(
-    sanitizeKey(rawStreamKey),
+    rawStreamKey,
     groupId,
     redisJson,
 ) {
@@ -50,10 +49,10 @@ class LintingConsumer(
 
     init {
         logger.info(
-            "LintingConsumer streamKey='{}' group='{}' dlq='{}'",
-            streamKeyForRetry,
-            groupId,
-            dlqKey,
+            "STREAM RAW='{}'  CLEAN='{}'  RAW_BYTES={}",
+            rawStreamKey,
+            streamKey,
+            rawStreamKey.toCharArray().joinToString(",") { it.code.toString() },
         )
     }
 
