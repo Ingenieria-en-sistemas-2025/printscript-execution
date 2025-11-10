@@ -23,15 +23,15 @@ import java.time.Duration
 abstract class ResilientRedisStreamConsumer<Value : Any>(rawStreamKey: String, rawGroupId: String, private val redis: RedisTemplate<String, Any>) {
 
     // Limpia comillas y whitespace en extremos
-    private fun clean(s: String): String = s.trim()
-        .replace("\\\"", "") // elimina comillas escapadas (backslash+")
-        .replace("\"", "") // elimina comillas normales
-        .replace("“", "") // abre inteligente
-        .replace("”", "") // cierra inteligente
-        .replace("'", "") // comilla simple si viniera
+    private fun hardClean(s: String) = s
+        .trim()
+        .replace("\\\"", "") // quita comillas escapadas
+        .replace("\"", "") // quita comillas dobles
+        .replace("“", "").replace("”", "") // comillas tipográficas
+        .replace("'", "") // comillas simples
 
-    protected val streamKey: String = clean(rawStreamKey)
-    protected val groupId: String = clean(rawGroupId)
+    protected val streamKey: String = hardClean(rawStreamKey)
+    protected val groupId: String = hardClean(rawGroupId)
 
     private val logger = LoggerFactory.getLogger(javaClass)
 

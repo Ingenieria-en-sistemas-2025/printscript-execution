@@ -45,6 +45,15 @@ class FormattingConsumer(
     private val streamKeyForRetry: String = streamKey
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    init {
+        logger.info(
+            "STREAM RAW='{}'  CLEAN='{}'  RAW_BYTES={}",
+            rawStreamKey,
+            streamKey,
+            rawStreamKey.toCharArray().joinToString(",") { it.code.toString() },
+        )
+    }
+
     @Suppress("UNCHECKED_CAST")
     override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> {
         val pair = RedisSerializationContext.SerializationPair.fromSerializer(genericJsonSerializer)
