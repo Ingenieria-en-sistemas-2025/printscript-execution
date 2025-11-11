@@ -67,7 +67,6 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     implementation("org.austral.ingsis:redis-streams-mvc:0.1.13")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
-    implementation("org.springframework.boot:spring-boot-starter-data-redis-reactive")
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.austral.ingsis:redis-streams-mvc:0.1.13")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
