@@ -20,7 +20,7 @@ import java.time.Duration
  * - Logs consistentes (info/warn/error) con detalles.
  * - Backoff infinito con jitter ante errores.
  */
-abstract class ResilientRedisStreamConsumer(rawStreamKey: String, rawGroupId: String, private val redis: RedisTemplate<String, Any>) {
+abstract class ResilientRedisStreamConsumer<T : DomainEvent>(rawStreamKey: String, rawGroupId: String, private val redis: RedisTemplate<String, Any>) {
 
     // Limpia comillas y whitespace en extremos
     private fun hardClean(s: String) = s
@@ -35,13 +35,13 @@ abstract class ResilientRedisStreamConsumer(rawStreamKey: String, rawGroupId: St
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    protected abstract fun onMessage(record: ObjectRecord<String, String>)
-    protected abstract fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>>
+    protected abstract fun onMessage(record: ObjectRecord<String, T>)
+    protected abstract fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, T>>
 
     private val consumerName: String =
         (System.getenv("HOSTNAME") ?: "ps-execution") + ":" + ProcessHandle.current().pid()
 
-    private lateinit var flow: Flux<ObjectRecord<String, String>>
+    private lateinit var flow: Flux<ObjectRecord<String, T>>
 
     @PostConstruct
     @Suppress("TooGenericExceptionCaught")
@@ -91,7 +91,7 @@ abstract class ResilientRedisStreamConsumer(rawStreamKey: String, rawGroupId: St
     private fun createConsumerGroup(streamKey: String, groupId: String) {
         try {
             redis.opsForStream<String, Any>().add(streamKey, mapOf("init" to "1"))
-        } catch (_: Exception) {}
+        } catch (_: Exception) { /* no-op si ya existe */ }
         redis.opsForStream<Any, Any>().createGroup(streamKey, ReadOffset.latest(), groupId)
         logger.info("Created group='{}' on stream='{}'", groupId, streamKey)
     }

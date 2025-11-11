@@ -13,6 +13,7 @@ import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.connection.stream.StreamRecords
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
+import org.springframework.data.redis.serializer.RedisSerializationContext
 import org.springframework.data.redis.serializer.StringRedisSerializer
 import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.stereotype.Component
@@ -39,7 +40,7 @@ class FormattingConsumer(
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.formatting}") private val dlqKey: String,
     private val om: ObjectMapper,
-) : ResilientRedisStreamConsumer(sanitizeKey(rawStreamKey), groupId, redisJson) {
+) : ResilientRedisStreamConsumer<SnippetsFormattingRulesUpdated>(sanitizeKey(rawStreamKey), groupId, redisJson) {
 
     private val streamKeyForRetry: String = streamKey
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -53,14 +54,14 @@ class FormattingConsumer(
         )
     }
 
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> = StreamReceiver.StreamReceiverOptions
         .builder()
         .pollTimeout(POLL_TIMEOUT)
-        .targetType(String::class.java)
+        .targetType(SnippetsFormattingRulesUpdated::class.java)
         .build()
 
-    override fun onMessage(record: ObjectRecord<String, String>) {
-        val event = om.readValue(record.value, SnippetsFormattingRulesUpdated::class.java)
+    override fun onMessage(record: ObjectRecord<String, SnippetsFormattingRulesUpdated>) {
+        val event = record.value
         try {
             val content = snippets.getContent(event.snippetId)
             val res = exec.formatContent(

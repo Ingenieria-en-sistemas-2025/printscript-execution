@@ -12,6 +12,8 @@ import org.springframework.context.annotation.Profile
 import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.connection.stream.StreamRecords
 import org.springframework.data.redis.core.RedisTemplate
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
+import org.springframework.data.redis.serializer.RedisSerializationContext
 import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.stereotype.Component
 import org.springframework.web.client.ResourceAccessException
@@ -35,7 +37,7 @@ class LintingConsumer(
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.linting}") private val dlqKey: String,
     private val om: ObjectMapper,
-) : ResilientRedisStreamConsumer(
+) : ResilientRedisStreamConsumer<SnippetsLintingRulesUpdated>(
     rawStreamKey,
     groupId,
     redisJson,
@@ -53,17 +55,16 @@ class LintingConsumer(
         )
     }
 
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> = StreamReceiver.StreamReceiverOptions
         .builder()
         .pollTimeout(POLL_TIMEOUT)
-        .targetType(String::class.java) // <<< clave
+        .targetType(SnippetsLintingRulesUpdated::class.java)
         .build()
 
-    override fun onMessage(record: ObjectRecord<String, String>) {
-        val event = om.readValue(record.value, SnippetsLintingRulesUpdated::class.java)
+    override fun onMessage(record: ObjectRecord<String, SnippetsLintingRulesUpdated>) {
+        val event = record.value
         try {
-            val content =
-                snippets.getContent(event.snippetId)
+            val content = snippets.getContent(event.snippetId)
             val res = exec.lint(
                 LintReq(
                     language = event.language,
@@ -97,7 +98,7 @@ class LintingConsumer(
         try {
             if (ev.attempt + 1 <= MAX_ATTEMPTS) {
                 val next = ev.copy(attempt = ev.attempt + 1)
-                redisJson.opsForStream<String, String>()
+                redisJson.opsForStream<String, Any>()
                     .add(
                         StreamRecords
                             .newRecord()
@@ -110,7 +111,7 @@ class LintingConsumer(
                     next.attempt,
                 )
             } else {
-                redisJson.opsForStream<String, String>()
+                redisJson.opsForStream<String, Any>()
                     .add(
                         StreamRecords
                             .newRecord()
