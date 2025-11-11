@@ -1,6 +1,8 @@
 package com.printscript.execution.redis
 
 import com.printscript.execution.dto.DiagnosticDto
+import com.printscript.execution.service.ExecutionServiceImpl
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.ResponseEntity
@@ -11,13 +13,16 @@ import java.util.UUID
 @Component
 class SnippetsClient(@Value("\${snippets.base-url}") private val base: String, @Qualifier("m2mRestTemplate") private val rest: RestTemplate) {
 
+    private val logger = LoggerFactory.getLogger(SnippetsClient::class.java)
+
     fun getContent(snippetId: UUID): String {
-        val res: ResponseEntity<ContentDto> = rest.getForEntity("$base/internal/snippets/$snippetId/content", ContentDto::class.java)
+        val res: ResponseEntity<ContentDto> = rest.getForEntity("$base/snippets/$snippetId", ContentDto::class.java)
         return res.body?.content
             ?: error("content not found for snippet $snippetId")
     }
 
     fun saveFormatted(snippetId: UUID, formatted: String) {
+        logger.info("Saving snippet $snippetId to $formatted")
         rest.postForEntity(
             "$base/internal/snippets/$snippetId/format",
             mapOf("content" to formatted),
@@ -26,14 +31,17 @@ class SnippetsClient(@Value("\${snippets.base-url}") private val base: String, @
     }
 
     fun saveLint(snippetId: UUID, violations: List<DiagnosticDto>) {
+        logger.info("Saving snippet $snippetId to $violations")
         rest.postForEntity(
             "$base/internal/snippets/$snippetId/lint",
+
             violations,
             Void::class.java,
         )
     }
 
     fun markLintFailed(snippetId: UUID) {
+        logger.info("Marking snippet $snippetId to failed")
         rest.postForEntity("$base/internal/snippets/$snippetId/lint-failed", null, Void::class.java)
     }
 }

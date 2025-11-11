@@ -1,10 +1,9 @@
-// FormattingConsumer.kt
 package com.printscript.execution.redis
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.printscript.execution.dto.FormatReq
 import com.printscript.execution.service.ExecutionService
 import com.printscript.snippets.redis.events.SnippetsFormattingRulesUpdated
-import org.austral.ingsis.redis.RedisStreamConsumer
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
@@ -29,8 +28,9 @@ private val POLL_TIMEOUT: Duration = Duration.ofSeconds(POLL_TIMEOUT_SECONDS)
 
 private fun sanitizeKey(raw: String) = raw.trim().trim('"', '\'')
 
-@Component
 @Profile("!test")
+@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
+@Component
 class FormattingConsumer(
     @Qualifier("redisTemplateJson")
     private val redisJson: RedisTemplate<String, Any>,
@@ -39,7 +39,7 @@ class FormattingConsumer(
     private val exec: ExecutionService,
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.formatting}") private val dlqKey: String,
-    private val genericJsonSerializer: GenericJackson2JsonRedisSerializer,
+    private val om: ObjectMapper,
 ) : ResilientRedisStreamConsumer<SnippetsFormattingRulesUpdated>(sanitizeKey(rawStreamKey), groupId, redisJson) {
 
     private val streamKeyForRetry: String = streamKey
@@ -54,15 +54,11 @@ class FormattingConsumer(
         )
     }
 
-    @Suppress("UNCHECKED_CAST")
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> {
-        val pair = RedisSerializationContext.SerializationPair.fromSerializer(genericJsonSerializer)
-        return StreamReceiver.StreamReceiverOptions.builder()
-            .pollTimeout(POLL_TIMEOUT)
-            .serializer(pair)
-            .targetType(SnippetsFormattingRulesUpdated::class.java) // <-- FIX ACÁ
-            .build() as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>>
-    }
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> = StreamReceiver.StreamReceiverOptions
+        .builder()
+        .pollTimeout(POLL_TIMEOUT)
+        .targetType(SnippetsFormattingRulesUpdated::class.java)
+        .build()
 
     override fun onMessage(record: ObjectRecord<String, SnippetsFormattingRulesUpdated>) {
         val event = record.value
@@ -86,15 +82,12 @@ class FormattingConsumer(
             logger.warn("Resource access error formatting snippetId={}: {}", event.snippetId, e.message, e)
             retryOrDlq(event)
         } catch (e: RestClientException) {
-            // Otros errores de cliente REST
             logger.warn("REST client error formatting snippetId={}: {}", event.snippetId, e.message, e)
             retryOrDlq(event)
         } catch (e: IllegalArgumentException) {
-            // Datos inválidos para ExecutionService
             logger.warn("Invalid args formatting snippetId={}: {}", event.snippetId, e.message, e)
             retryOrDlq(event)
         } catch (e: IllegalStateException) {
-            // Estado interno inválido
             logger.warn("Illegal state formatting snippetId={}: {}", event.snippetId, e.message, e)
             retryOrDlq(event)
         }
