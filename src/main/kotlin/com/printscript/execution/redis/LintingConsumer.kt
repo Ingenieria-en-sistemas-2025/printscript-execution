@@ -1,10 +1,9 @@
 package com.printscript.execution.redis
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.printscript.execution.dto.LintReq
 import com.printscript.execution.service.ExecutionService
-import com.printscript.snippets.redis.events.SnippetsFormattingRulesUpdated
 import com.printscript.snippets.redis.events.SnippetsLintingRulesUpdated
-import org.austral.ingsis.redis.RedisStreamConsumer
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
@@ -13,9 +12,6 @@ import org.springframework.context.annotation.Profile
 import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.connection.stream.StreamRecords
 import org.springframework.data.redis.core.RedisTemplate
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
-import org.springframework.data.redis.serializer.RedisSerializationContext
-import org.springframework.data.redis.serializer.StringRedisSerializer
 import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.stereotype.Component
 import org.springframework.web.client.ResourceAccessException
@@ -27,8 +23,9 @@ private const val MAX_ATTEMPTS = 3
 private const val POLL_TIMEOUT_SECONDS = 10L
 private val POLL_TIMEOUT: Duration = Duration.ofSeconds(POLL_TIMEOUT_SECONDS)
 
-@Component
 @Profile("!test")
+@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
+@Component
 class LintingConsumer(
     @Qualifier("redisTemplateJson")
     private val redisJson: RedisTemplate<String, Any>,
@@ -37,8 +34,8 @@ class LintingConsumer(
     private val exec: ExecutionService,
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.linting}") private val dlqKey: String,
-    private val genericJsonSerializer: GenericJackson2JsonRedisSerializer,
-) : ResilientRedisStreamConsumer<SnippetsLintingRulesUpdated>(
+    private val om: ObjectMapper,
+) : ResilientRedisStreamConsumer(
     rawStreamKey,
     groupId,
     redisJson,
@@ -56,18 +53,14 @@ class LintingConsumer(
         )
     }
 
-    @Suppress("UNCHECKED_CAST")
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> {
-        val pair = RedisSerializationContext.SerializationPair.fromSerializer(genericJsonSerializer)
-        return StreamReceiver.StreamReceiverOptions.builder()
-            .pollTimeout(POLL_TIMEOUT)
-            .serializer(pair)
-            .targetType(SnippetsLintingRulesUpdated::class.java)
-            .build() as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>>
-    }
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions
+        .builder()
+        .pollTimeout(POLL_TIMEOUT)
+        .targetType(String::class.java) // <<< clave
+        .build()
 
-    override fun onMessage(record: ObjectRecord<String, SnippetsLintingRulesUpdated>) {
-        val event = record.value
+    override fun onMessage(record: ObjectRecord<String, String>) {
+        val event = om.readValue(record.value, SnippetsLintingRulesUpdated::class.java)
         try {
             val content =
                 snippets.getContent(event.snippetId)
@@ -131,7 +124,6 @@ class LintingConsumer(
                     ev.attempt,
                 )
 
-                // Intentamos marcar el lint como fallido
                 safeMarkFailed(ev)
             }
         } catch (ex: Exception) {

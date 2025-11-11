@@ -20,7 +20,7 @@ import java.time.Duration
  * - Logs consistentes (info/warn/error) con detalles.
  * - Backoff infinito con jitter ante errores.
  */
-abstract class ResilientRedisStreamConsumer<Value : Any>(rawStreamKey: String, rawGroupId: String, private val redis: RedisTemplate<String, Any>) {
+abstract class ResilientRedisStreamConsumer(rawStreamKey: String, rawGroupId: String, private val redis: RedisTemplate<String, Any>) {
 
     // Limpia comillas y whitespace en extremos
     private fun hardClean(s: String) = s
@@ -35,13 +35,13 @@ abstract class ResilientRedisStreamConsumer<Value : Any>(rawStreamKey: String, r
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    protected abstract fun onMessage(record: ObjectRecord<String, Value>)
-    protected abstract fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, Value>>
+    protected abstract fun onMessage(record: ObjectRecord<String, String>)
+    protected abstract fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>>
 
     private val consumerName: String =
         (System.getenv("HOSTNAME") ?: "ps-execution") + ":" + ProcessHandle.current().pid()
 
-    private lateinit var flow: Flux<ObjectRecord<String, Value>>
+    private lateinit var flow: Flux<ObjectRecord<String, String>>
 
     @PostConstruct
     @Suppress("TooGenericExceptionCaught")
