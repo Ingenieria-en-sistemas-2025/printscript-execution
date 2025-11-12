@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.printscript.execution.dto.LintReq
 import com.printscript.execution.service.ExecutionService
 import com.printscript.snippets.redis.events.SnippetsLintingRulesUpdated
+import jakarta.annotation.PostConstruct
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
@@ -30,7 +31,6 @@ private const val RECORD = 200
 @ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
 @Component
 class LintingConsumer(
-    @Qualifier("redisTemplateString")
     private val redisString: RedisTemplate<String, String>,
     @Value("\${streams.linting.key}") rawStreamKey: String,
     @Value("\${streams.linting.group}") groupId: String,
@@ -38,11 +38,8 @@ class LintingConsumer(
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.linting}") private val dlqKey: String,
     private val om: ObjectMapper,
-) : ResilientRedisStreamConsumer(
-    rawStreamKey,
-    groupId,
-    redisString,
-) {
+    private val receiver: StreamReceiver<String, ObjectRecord<String, String>>,
+) : ResilientRedisStreamConsumer(rawStreamKey, groupId, redisString, receiver) {
 
     private val logger = LoggerFactory.getLogger(javaClass)
     private val streamKeyForRetry: String = streamKey
@@ -55,17 +52,6 @@ class LintingConsumer(
             rawStreamKey.toCharArray().joinToString(",") { it.code.toString() },
         )
     }
-
-    @Suppress("UNCHECKED_CAST")
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions.builder()
-        .pollTimeout(POLL_TIMEOUT)
-        .targetType(String::class.java)
-        .serializer(
-            RedisSerializationContext
-                .SerializationPair
-                .fromSerializer(StringRedisSerializer()),
-        )
-        .build() as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>>
 
     override fun onMessage(record: ObjectRecord<String, String>) {
         logger.info("RAW event: {}", record.value.take(RECORD))

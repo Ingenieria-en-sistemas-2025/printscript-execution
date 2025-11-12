@@ -31,7 +31,6 @@ private fun sanitizeKey(raw: String) = raw.trim().trim('"', '\'')
 @ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
 @Component
 class FormattingConsumer(
-    @Qualifier("redisTemplateString")
     private val redisString: RedisTemplate<String, String>,
     @Value("\${streams.formatting.key}") rawStreamKey: String,
     @Value("\${streams.formatting.group}") groupId: String,
@@ -39,10 +38,11 @@ class FormattingConsumer(
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.formatting}") private val dlqKey: String,
     private val om: ObjectMapper,
-) : ResilientRedisStreamConsumer(sanitizeKey(rawStreamKey), groupId, redisString) {
+    private val receiver: StreamReceiver<String, ObjectRecord<String, String>>,
+) : ResilientRedisStreamConsumer(rawStreamKey, groupId, redisString, receiver) {
 
-    private val streamKeyForRetry: String = streamKey
     private val logger = LoggerFactory.getLogger(javaClass)
+    private val streamKeyForRetry: String = streamKey
 
     init {
         logger.info(
@@ -52,17 +52,6 @@ class FormattingConsumer(
             rawStreamKey.toCharArray().joinToString(",") { it.code.toString() },
         )
     }
-
-    @Suppress("UNCHECKED_CAST")
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions.builder()
-        .pollTimeout(POLL_TIMEOUT)
-        .targetType(String::class.java)
-        .serializer(
-            RedisSerializationContext
-                .SerializationPair
-                .fromSerializer(StringRedisSerializer()),
-        )
-        .build() as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>>
 
     override fun onMessage(record: ObjectRecord<String, String>) {
         val event = om.readValue(record.value, SnippetsFormattingRulesUpdated::class.java)

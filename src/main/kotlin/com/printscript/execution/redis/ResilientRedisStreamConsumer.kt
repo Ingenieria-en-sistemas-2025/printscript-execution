@@ -9,6 +9,7 @@ import org.springframework.data.redis.connection.stream.ReadOffset
 import org.springframework.data.redis.connection.stream.StreamOffset
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.stream.StreamReceiver
+import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.util.retry.Retry
 import java.net.InetAddress
@@ -20,7 +21,7 @@ import java.time.Duration
  * - Logs consistentes (info/warn/error) con detalles.
  * - Backoff infinito con jitter ante errores.
  */
-abstract class ResilientRedisStreamConsumer(rawStreamKey: String, rawGroupId: String, private val redis: RedisTemplate<String, String>) {
+abstract class ResilientRedisStreamConsumer(rawStreamKey: String, rawGroupId: String, private val redis: RedisTemplate<String, String>, private val receiver: StreamReceiver<String, ObjectRecord<String, String>>) {
 
     // Limpia comillas y whitespace en extremos
     private fun hardClean(s: String) = s
@@ -36,12 +37,11 @@ abstract class ResilientRedisStreamConsumer(rawStreamKey: String, rawGroupId: St
     private val logger = LoggerFactory.getLogger(javaClass)
 
     protected abstract fun onMessage(record: ObjectRecord<String, String>)
-    protected abstract fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>>
-
     private val consumerName: String =
         (System.getenv("HOSTNAME") ?: "ps-execution") + ":" + ProcessHandle.current().pid()
 
     private lateinit var flow: Flux<ObjectRecord<String, String>>
+    private lateinit var subscription: Disposable
 
     @PostConstruct
     @Suppress("TooGenericExceptionCaught")
@@ -61,10 +61,8 @@ abstract class ResilientRedisStreamConsumer(rawStreamKey: String, rawGroupId: St
             createConsumerGroup(streamKey, groupId)
         }
 
-        val factory = redis.connectionFactory as ReactiveRedisConnectionFactory
-        val container = StreamReceiver.create(factory, options())
-
-        flow = container
+        logger.info("[{} / {}] SUBSCRIBING as {} with offset=lastConsumed", groupId, streamKey, consumerName)
+        flow = receiver
             .receiveAutoAck(
                 Consumer.from(groupId, consumerName),
                 StreamOffset.create(streamKey, ReadOffset.lastConsumed()),
@@ -82,22 +80,23 @@ abstract class ResilientRedisStreamConsumer(rawStreamKey: String, rawGroupId: St
                     .jitter(JITTER_FACTOR),
             )
 
-        flow.subscribe(
+        subscription = flow.subscribe(
             { rec -> onMessage(rec) },
             { t -> logger.error("[{}/{}] subscription terminated: {}", groupId, streamKey, t.message, t) },
         )
+        logger.info("[{} / {}] SUBSCRIPTION STARTED -> {}", groupId, streamKey, subscription)
     }
 
     private fun createConsumerGroup(streamKey: String, groupId: String) {
         try {
-            redis.opsForStream<String, Any>().add(streamKey, mapOf("init" to "1"))
+            redis.opsForStream<String, String>().add(streamKey, mapOf("init" to "1"))
         } catch (_: Exception) { /* no-op si ya existe */ }
-        redis.opsForStream<Any, Any>().createGroup(streamKey, ReadOffset.latest(), groupId)
+        redis.opsForStream<String, String>().createGroup(streamKey, ReadOffset.latest(), groupId)
         logger.info("Created group='{}' on stream='{}'", groupId, streamKey)
     }
 
     private fun consumerGroupExists(stream: String, group: String): Boolean = try {
-        redis.opsForStream<Any, Any>().groups(stream).any { it.groupName() == group }
+        redis.opsForStream<String, String>().groups(stream).any { it.groupName() == group }
     } catch (_: Exception) {
         false
     }
