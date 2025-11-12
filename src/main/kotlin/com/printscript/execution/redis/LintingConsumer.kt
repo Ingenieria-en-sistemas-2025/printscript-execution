@@ -54,11 +54,15 @@ class LintingConsumer(
         )
     }
 
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> = StreamReceiver.StreamReceiverOptions
-        .builder()
+    @Suppress("UNCHECKED_CAST")
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> = StreamReceiver.StreamReceiverOptions.builder()
         .pollTimeout(POLL_TIMEOUT)
+        .serializer(
+            RedisSerializationContext.SerializationPair.fromSerializer(redisJson.valueSerializer)
+                as RedisSerializationContext.SerializationPair<Any>,
+        )
         .targetType(SnippetsLintingRulesUpdated::class.java)
-        .build()
+        .build() as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>>
 
     override fun onMessage(record: ObjectRecord<String, SnippetsLintingRulesUpdated>) {
         val event = record.value
