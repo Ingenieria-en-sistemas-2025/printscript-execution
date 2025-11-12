@@ -37,11 +37,20 @@ class LintingConsumer(@Value("\${streams.linting.key}") rawStreamKey: String, @V
         .targetType(String::class.java)
         .build()
 
+    @Suppress("TooGenericExceptionCaught")
     override fun onMessage(record: ObjectRecord<String, String>) {
         val raw = record.value
         println("[lint] raw=${raw.take(LOG_PREVIEW_CHARS)}")
 
-        val ev = om.readValue(raw, SnippetsLintingRulesUpdated::class.java)
+        val ev: SnippetsLintingRulesUpdated = try {
+            om.readValue(raw, SnippetsLintingRulesUpdated::class.java)
+        } catch (e: Exception) {
+            println("[lint][DESER ERROR] ${e::class.java.name}: ${e.message}")
+            return
+        }
+
+        println("[lint] ev.ok id=${ev.snippetId} corr=${ev.correlationalId}")
+
         val content = snippets.getContent(ev.snippetId)
 
         val res = exec.lint(
