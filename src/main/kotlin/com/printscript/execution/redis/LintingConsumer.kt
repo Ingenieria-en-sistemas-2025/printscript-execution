@@ -25,6 +25,7 @@ import java.time.Duration
 private const val MAX_ATTEMPTS = 3
 private const val POLL_TIMEOUT_SECONDS = 10L
 private val POLL_TIMEOUT: Duration = Duration.ofSeconds(POLL_TIMEOUT_SECONDS)
+private const val RECORD = 200
 
 @Profile("!test")
 @ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
@@ -63,7 +64,9 @@ class LintingConsumer(
         .build()
 
     override fun onMessage(record: ObjectRecord<String, String>) {
+        logger.info("RAW event: {}", record.value.take(RECORD))
         val event = om.readValue(record.value, SnippetsLintingRulesUpdated::class.java)
+        logger.info("Parsed event snippetId={} lang={} ver={}", event.snippetId, event.language, event.version)
         try {
             val content = snippets.getContent(event.snippetId)
             val res = exec.lint(
