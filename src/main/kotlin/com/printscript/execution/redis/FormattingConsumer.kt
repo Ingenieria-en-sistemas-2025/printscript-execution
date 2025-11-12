@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.printscript.execution.dto.FormatReq
 import com.printscript.execution.service.ExecutionService
 import com.printscript.snippets.redis.events.SnippetsFormattingRulesUpdated
-import com.printscript.snippets.redis.events.SnippetsLintingRulesUpdated
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
@@ -55,14 +54,23 @@ class FormattingConsumer(
     }
 
     @Suppress("UNCHECKED_CAST")
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> = StreamReceiver.StreamReceiverOptions.builder()
-        .pollTimeout(POLL_TIMEOUT)
-        .serializer(
-            RedisSerializationContext.SerializationPair.fromSerializer(redisJson.valueSerializer)
-                as RedisSerializationContext.SerializationPair<Any>,
-        )
-        .targetType(SnippetsFormattingRulesUpdated::class.java)
-        .build() as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>>
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> {
+        val keySer = RedisSerializationContext.SerializationPair
+            .fromSerializer(StringRedisSerializer()) as RedisSerializationContext.SerializationPair<Any>
+
+        val valueSer = RedisSerializationContext.SerializationPair
+            .fromSerializer(redisJson.valueSerializer) as RedisSerializationContext.SerializationPair<Any>
+
+        return (
+            StreamReceiver.StreamReceiverOptions
+                .builder()
+                .pollTimeout(POLL_TIMEOUT)
+                .keySerializer(keySer)
+                .serializer(valueSer)
+                .targetType(SnippetsFormattingRulesUpdated::class.java)
+                .build()
+            ) as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>>
+    }
 
     override fun onMessage(record: ObjectRecord<String, SnippetsFormattingRulesUpdated>) {
         val event = record.value
