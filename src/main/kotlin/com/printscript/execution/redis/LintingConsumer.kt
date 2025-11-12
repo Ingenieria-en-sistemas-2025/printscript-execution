@@ -57,11 +57,16 @@ class LintingConsumer(
         )
     }
 
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions
-        .builder()
+    @Suppress("UNCHECKED_CAST")
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions.builder()
         .pollTimeout(POLL_TIMEOUT)
         .targetType(String::class.java)
-        .build()
+        .serializer(
+            RedisSerializationContext
+                .SerializationPair
+                .fromSerializer(StringRedisSerializer()),
+        )
+        .build() as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>>
 
     override fun onMessage(record: ObjectRecord<String, String>) {
         logger.info("RAW event: {}", record.value.take(RECORD))
@@ -101,25 +106,25 @@ class LintingConsumer(
     private fun retryOrDlq(ev: SnippetsLintingRulesUpdated) {
         try {
             if (ev.attempt + 1 <= MAX_ATTEMPTS) {
-                val next = ev.copy(attempt = ev.attempt + 1)
-                redisString.opsForStream<String, Any>()
-                    .add(StreamRecords.newRecord().ofObject(next).withStreamKey(streamKeyForRetry))
-                logger.info("Retry scheduled for snippetId={} attempt={}", ev.snippetId, next.attempt)
+                publishJson(streamKeyForRetry, ev.copy(attempt = ev.attempt + 1))
+                logger.info("Retry scheduled for snippetId={} attempt={}", ev.snippetId, ev.attempt + 1)
             } else {
-                try {
-                    redisString.opsForStream<String, Any>()
-                        .add(StreamRecords.newRecord().ofObject(ev).withStreamKey(dlqKey))
-                    logger.error("Sent to DLQ={} snippetId={} after attempts={}", dlqKey, ev.snippetId, ev.attempt)
-                } catch (dlqEx: Exception) {
-                    logger.error("DLQ publish FAILED for {}: {}", ev.snippetId, dlqEx.message, dlqEx)
-                } finally {
-                    safeMarkFailed(ev)
-                }
+                publishJson(dlqKey, ev)
+                logger.error("Sent to DLQ={} snippetId={} after attempts={}", dlqKey, ev.snippetId, ev.attempt)
+                safeMarkFailed(ev)
             }
         } catch (ex: Exception) {
             logger.error("Unexpected error retrying snippetId={} attempt={} -> {}", ev.snippetId, ev.attempt, ex.message, ex)
             safeMarkFailed(ev)
         }
+    }
+
+    private fun publishJson(stream: String, obj: Any) {
+        val json = om.writeValueAsString(obj)
+        val rec = StreamRecords.newRecord()
+            .ofObject(json)
+            .withStreamKey(stream)
+        redisString.opsForStream<String, String>().add(rec)
     }
 
     private fun safeMarkFailed(ev: SnippetsLintingRulesUpdated) {

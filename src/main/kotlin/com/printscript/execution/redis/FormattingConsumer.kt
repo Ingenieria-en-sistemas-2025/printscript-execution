@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.printscript.execution.dto.FormatReq
 import com.printscript.execution.service.ExecutionService
 import com.printscript.snippets.redis.events.SnippetsFormattingRulesUpdated
-import com.printscript.snippets.redis.events.SnippetsLintingRulesUpdated
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
@@ -54,11 +53,16 @@ class FormattingConsumer(
         )
     }
 
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions
-        .builder()
+    @Suppress("UNCHECKED_CAST")
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions.builder()
         .pollTimeout(POLL_TIMEOUT)
         .targetType(String::class.java)
-        .build()
+        .serializer(
+            RedisSerializationContext
+                .SerializationPair
+                .fromSerializer(StringRedisSerializer()),
+        )
+        .build() as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>>
 
     override fun onMessage(record: ObjectRecord<String, String>) {
         val event = om.readValue(record.value, SnippetsFormattingRulesUpdated::class.java)
@@ -93,16 +97,26 @@ class FormattingConsumer(
         }
     }
 
+    private fun publishJson(stream: String, obj: Any) {
+        val json = om.writeValueAsString(obj)
+        val rec = StreamRecords.newRecord()
+            .ofObject(json)
+            .withStreamKey(stream)
+        redisString.opsForStream<String, String>().add(rec)
+    }
+
+    @Suppress("TooGenericExceptionCaught")
     private fun retryOrDlq(ev: SnippetsFormattingRulesUpdated) {
-        if (ev.attempt + 1 <= MAX_ATTEMPTS) {
-            val next = ev.copy(attempt = ev.attempt + 1)
-            redisString.opsForStream<String, Any>()
-                .add(StreamRecords.newRecord().ofObject(next).withStreamKey(streamKeyForRetry))
-            logger.info("Retry scheduled for snippetId={} attempt={}", ev.snippetId, next.attempt)
-        } else {
-            redisString.opsForStream<String, Any>()
-                .add(StreamRecords.newRecord().ofObject(ev).withStreamKey(dlqKey))
-            logger.error("Sent to DLQ={} snippetId={} after attempts={}", dlqKey, ev.snippetId, ev.attempt)
+        try {
+            if (ev.attempt + 1 <= MAX_ATTEMPTS) {
+                publishJson(streamKeyForRetry, ev.copy(attempt = ev.attempt + 1))
+                logger.info("Retry scheduled for snippetId={} attempt={}", ev.snippetId, ev.attempt + 1)
+            } else {
+                publishJson(dlqKey, ev)
+                logger.error("Sent to DLQ={} snippetId={} after attempts={}", dlqKey, ev.snippetId, ev.attempt)
+            }
+        } catch (ex: Exception) {
+            logger.error("Unexpected error retrying snippetId={} attempt={} -> {}", ev.snippetId, ev.attempt, ex.message, ex)
         }
     }
 }
