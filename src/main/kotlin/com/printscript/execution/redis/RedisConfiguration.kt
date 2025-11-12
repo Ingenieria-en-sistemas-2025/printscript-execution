@@ -25,14 +25,4 @@ class RedisConfiguration(@Value("\${spring.data.redis.host}") private val host: 
         setConnectionFactory(cf)
         afterPropertiesSet()
     }
-
-    @Bean("redisTemplateJson")
-    fun redisTemplateJson(cf: RedisConnectionFactory, genericJsonSerializer: GenericJackson2JsonRedisSerializer): RedisTemplate<String, Any> = RedisTemplate<String, Any>().apply {
-        setConnectionFactory(cf)
-        keySerializer = StringRedisSerializer()
-        valueSerializer = genericJsonSerializer
-        hashKeySerializer = keySerializer
-        hashValueSerializer = valueSerializer
-        afterPropertiesSet()
-    }
 }
