@@ -39,7 +39,6 @@ class FormattingConsumer(
     private val exec: ExecutionService,
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.formatting}") private val dlqKey: String,
-    private val om: ObjectMapper,
 ) : ResilientRedisStreamConsumer<SnippetsFormattingRulesUpdated>(sanitizeKey(rawStreamKey), groupId, redisJson) {
 
     private val streamKeyForRetry: String = streamKey

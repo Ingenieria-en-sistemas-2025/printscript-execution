@@ -36,7 +36,6 @@ class LintingConsumer(
     private val exec: ExecutionService,
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.linting}") private val dlqKey: String,
-    private val om: ObjectMapper,
 ) : ResilientRedisStreamConsumer<SnippetsLintingRulesUpdated>(
     rawStreamKey,
     groupId,
@@ -99,42 +98,22 @@ class LintingConsumer(
             if (ev.attempt + 1 <= MAX_ATTEMPTS) {
                 val next = ev.copy(attempt = ev.attempt + 1)
                 redisJson.opsForStream<String, Any>()
-                    .add(
-                        StreamRecords
-                            .newRecord()
-                            .ofObject(next)
-                            .withStreamKey(streamKeyForRetry),
-                    )
-                logger.info(
-                    "Retry scheduled for snippetId={} attempt={}",
-                    ev.snippetId,
-                    next.attempt,
-                )
+                    .add(StreamRecords.newRecord().ofObject(next).withStreamKey(streamKeyForRetry))
+                logger.info("Retry scheduled for snippetId={} attempt={}", ev.snippetId, next.attempt)
             } else {
-                redisJson.opsForStream<String, Any>()
-                    .add(
-                        StreamRecords
-                            .newRecord()
-                            .ofObject(ev)
-                            .withStreamKey(dlqKey),
-                    )
-                logger.error(
-                    "Sent to DLQ={} snippetId={} after attempts={}",
-                    dlqKey,
-                    ev.snippetId,
-                    ev.attempt,
-                )
-
-                safeMarkFailed(ev)
+                try {
+                    redisJson.opsForStream<String, Any>()
+                        .add(StreamRecords.newRecord().ofObject(ev).withStreamKey(dlqKey))
+                    logger.error("Sent to DLQ={} snippetId={} after attempts={}", dlqKey, ev.snippetId, ev.attempt)
+                } catch (dlqEx: Exception) {
+                    logger.error("DLQ publish FAILED for {}: {}", ev.snippetId, dlqEx.message, dlqEx)
+                } finally {
+                    safeMarkFailed(ev)
+                }
             }
         } catch (ex: Exception) {
-            logger.error(
-                "Unexpected error retrying snippetId={} attempt={} -> {}",
-                ev.snippetId,
-                ev.attempt,
-                ex.message,
-                ex,
-            )
+            logger.error("Unexpected error retrying snippetId={} attempt={} -> {}", ev.snippetId, ev.attempt, ex.message, ex)
+            safeMarkFailed(ev)
         }
     }
 

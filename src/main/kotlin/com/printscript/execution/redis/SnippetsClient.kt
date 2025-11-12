@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Component
+import org.springframework.web.client.RestClientResponseException
 import org.springframework.web.client.RestTemplate
 import java.util.UUID
 
@@ -15,10 +16,14 @@ class SnippetsClient(@Value("\${snippets.base-url}") private val base: String, @
 
     private val logger = LoggerFactory.getLogger(SnippetsClient::class.java)
 
+    init {
+        require(base.isNotBlank()) { "snippets.base-url is missing/blank" }
+        logger.info("SnippetsClient base={}", base)
+    }
+
     fun getContent(snippetId: UUID): String {
-        val res: ResponseEntity<ContentDto> = rest.getForEntity("$base/snippets/$snippetId", ContentDto::class.java)
-        return res.body?.content
-            ?: error("content not found for snippet $snippetId")
+        val res = rest.getForEntity("$base/internal/snippets/$snippetId/content", ContentDto::class.java)
+        return res.body?.content ?: error("content not found for snippet $snippetId")
     }
 
     fun saveFormatted(snippetId: UUID, formatted: String) {
@@ -31,13 +36,15 @@ class SnippetsClient(@Value("\${snippets.base-url}") private val base: String, @
     }
 
     fun saveLint(snippetId: UUID, violations: List<DiagnosticDto>) {
+        logger.info("Calling /internal/snippets/{}/lint with {} violations", snippetId, violations.size)
         logger.info("Saving snippet $snippetId to $violations")
-        rest.postForEntity(
-            "$base/internal/snippets/$snippetId/lint",
-
-            violations,
-            Void::class.java,
-        )
+        try {
+            val res = rest.postForEntity("$base/internal/snippets/$snippetId/lint", violations, Void::class.java)
+            logger.info("saveLint status={} for {}", res.statusCode.value(), snippetId)
+        } catch (e: RestClientResponseException) {
+            logger.error("saveLint HTTP {} body={} for {}", e.statusCode.value(), e.responseBodyAsString, snippetId, e)
+            throw e
+        }
     }
 
     fun markLintFailed(snippetId: UUID) {
