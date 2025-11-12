@@ -4,108 +4,49 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.printscript.execution.dto.FormatReq
 import com.printscript.execution.service.ExecutionService
 import com.printscript.snippets.redis.events.SnippetsFormattingRulesUpdated
-import org.slf4j.LoggerFactory
+import org.austral.ingsis.redis.RedisStreamConsumer
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.context.annotation.Profile
 import org.springframework.data.redis.connection.stream.ObjectRecord
-import org.springframework.data.redis.connection.stream.StreamRecords
 import org.springframework.data.redis.core.RedisTemplate
-import org.springframework.data.redis.serializer.RedisSerializationContext
-import org.springframework.data.redis.serializer.StringRedisSerializer
 import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.stereotype.Component
-import org.springframework.web.client.ResourceAccessException
-import org.springframework.web.client.RestClientException
-import org.springframework.web.client.RestClientResponseException
 import java.time.Duration
 
-private const val MAX_ATTEMPTS = 3
 private const val POLL_TIMEOUT_SECONDS = 10L
-private val POLL_TIMEOUT: Duration = Duration.ofSeconds(POLL_TIMEOUT_SECONDS)
+private const val LOG_PREVIEW_CHARS = 200
 
-private fun sanitizeKey(raw: String) = raw.trim().trim('"', '\'')
-
-@Profile("!test")
-@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
 @Component
-class FormattingConsumer(
-    private val redisString: RedisTemplate<String, String>,
-    @Value("\${streams.formatting.key}") rawStreamKey: String,
-    @Value("\${streams.formatting.group}") groupId: String,
-    private val exec: ExecutionService,
-    private val snippets: SnippetsClient,
-    @Value("\${streams.dlq.formatting}") private val dlqKey: String,
-    private val om: ObjectMapper,
-    private val receiver: StreamReceiver<String, ObjectRecord<String, String>>,
-) : ResilientRedisStreamConsumer(rawStreamKey, groupId, redisString, receiver) {
-
-    private val logger = LoggerFactory.getLogger(javaClass)
-    private val streamKeyForRetry: String = streamKey
-
-    init {
-        logger.info(
-            "STREAM RAW='{}'  CLEAN='{}'  RAW_BYTES={}",
-            rawStreamKey,
-            streamKey,
-            rawStreamKey.toCharArray().joinToString(",") { it.code.toString() },
-        )
-    }
+@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
+class FormattingConsumer(@Value("\${streams.formatting.key}") rawStreamKey: String, @Value("\${streams.linting.group}") rawGroup: String, private val om: ObjectMapper, private val exec: ExecutionService, private val snippets: SnippetsClient, @Qualifier("stringTemplate") redis: RedisTemplate<String, String>) :
+    RedisStreamConsumer<String>(
+        streamKey = rawStreamKey.trim().trim('"', '\''),
+        groupId = rawGroup.trim().trim('"', '\''),
+        redis = redis,
+    ) {
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions.builder()
+        .pollTimeout(Duration.ofSeconds(POLL_TIMEOUT_SECONDS))
+        .targetType(String::class.java)
+        .build()
 
     override fun onMessage(record: ObjectRecord<String, String>) {
-        val event = om.readValue(record.value, SnippetsFormattingRulesUpdated::class.java)
-        try {
-            val content = snippets.getContent(event.snippetId)
-            val res = exec.formatContent(
-                FormatReq(
-                    language = event.language,
-                    version = event.version,
-                    content = content,
-                    configText = event.configText,
-                    configFormat = event.configFormat,
-                    options = event.options,
-                ),
-            )
-            snippets.saveFormatted(event.snippetId, res.formattedContent)
-        } catch (e: RestClientResponseException) {
-            logger.warn("HTTP error formatting snippetId={} status={} body={}", event.snippetId, e.statusCode.value(), e.responseBodyAsString, e)
-            retryOrDlq(event)
-        } catch (e: ResourceAccessException) {
-            logger.warn("Resource access error formatting snippetId={}: {}", event.snippetId, e.message, e)
-            retryOrDlq(event)
-        } catch (e: RestClientException) {
-            logger.warn("REST client error formatting snippetId={}: {}", event.snippetId, e.message, e)
-            retryOrDlq(event)
-        } catch (e: IllegalArgumentException) {
-            logger.warn("Invalid args formatting snippetId={}: {}", event.snippetId, e.message, e)
-            retryOrDlq(event)
-        } catch (e: IllegalStateException) {
-            logger.warn("Illegal state formatting snippetId={}: {}", event.snippetId, e.message, e)
-            retryOrDlq(event)
-        }
-    }
+        val raw = record.value
+        println("[lint] raw=${raw.take(LOG_PREVIEW_CHARS)}")
 
-    private fun publishJson(stream: String, obj: Any) {
-        val json = om.writeValueAsString(obj)
-        val rec = StreamRecords.newRecord()
-            .ofObject(json)
-            .withStreamKey(stream)
-        redisString.opsForStream<String, String>().add(rec)
-    }
+        val ev = om.readValue(raw, SnippetsFormattingRulesUpdated::class.java)
+        val content = snippets.getContent(ev.snippetId)
 
-    @Suppress("TooGenericExceptionCaught")
-    private fun retryOrDlq(ev: SnippetsFormattingRulesUpdated) {
-        try {
-            if (ev.attempt + 1 <= MAX_ATTEMPTS) {
-                publishJson(streamKeyForRetry, ev.copy(attempt = ev.attempt + 1))
-                logger.info("Retry scheduled for snippetId={} attempt={}", ev.snippetId, ev.attempt + 1)
-            } else {
-                publishJson(dlqKey, ev)
-                logger.error("Sent to DLQ={} snippetId={} after attempts={}", dlqKey, ev.snippetId, ev.attempt)
-            }
-        } catch (ex: Exception) {
-            logger.error("Unexpected error retrying snippetId={} attempt={} -> {}", ev.snippetId, ev.attempt, ex.message, ex)
-        }
+        val res = exec.formatContent(
+            FormatReq(
+                language = ev.language,
+                version = ev.version,
+                content = content,
+                configText = ev.configText,
+                configFormat = ev.configFormat,
+                options = ev.options,
+            ),
+        )
+        snippets.saveFormatted(ev.snippetId, res.formattedContent)
     }
 }

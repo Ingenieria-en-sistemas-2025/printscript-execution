@@ -21,11 +21,12 @@ import org.springframework.data.redis.serializer.StringRedisSerializer
 import org.springframework.data.redis.stream.StreamReceiver
 import java.time.Duration
 
-private const val STREAM_POLL_TIMEOUT_SECONDS = 3L
-
 @Profile("!test")
 @Configuration
 class RedisConfiguration(@Value("\${spring.data.redis.host}") private val host: String, @Value("\${spring.data.redis.port}") private val port: Int) {
+    @Bean
+    fun connectionFactory() = LettuceConnectionFactory(RedisStandaloneConfiguration(host, port))
+
     @Bean
     @Primary
     fun stringTemplate(cf: RedisConnectionFactory): RedisTemplate<String, String> = RedisTemplate<String, String>().apply {
@@ -36,14 +37,4 @@ class RedisConfiguration(@Value("\${spring.data.redis.host}") private val host: 
         hashValueSerializer = StringRedisSerializer()
         afterPropertiesSet()
     }
-
-    @Bean
-    fun streamReceiver(cf: ReactiveRedisConnectionFactory): StreamReceiver<String, ObjectRecord<String, String>> = StreamReceiver.create(
-        cf,
-        StreamReceiver.StreamReceiverOptions
-            .builder()
-            .pollTimeout(Duration.ofSeconds(STREAM_POLL_TIMEOUT_SECONDS))
-            .targetType(String::class.java)
-            .build(),
-    )
 }
