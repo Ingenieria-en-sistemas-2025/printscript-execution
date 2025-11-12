@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.printscript.execution.dto.FormatReq
 import com.printscript.execution.service.ExecutionService
 import com.printscript.snippets.redis.events.SnippetsFormattingRulesUpdated
+import com.printscript.snippets.redis.events.SnippetsLintingRulesUpdated
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
@@ -12,7 +13,6 @@ import org.springframework.context.annotation.Profile
 import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.connection.stream.StreamRecords
 import org.springframework.data.redis.core.RedisTemplate
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
 import org.springframework.data.redis.serializer.RedisSerializationContext
 import org.springframework.data.redis.serializer.StringRedisSerializer
 import org.springframework.data.redis.stream.StreamReceiver
@@ -32,14 +32,15 @@ private fun sanitizeKey(raw: String) = raw.trim().trim('"', '\'')
 @ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
 @Component
 class FormattingConsumer(
-    @Qualifier("redisTemplateJson")
-    private val redisJson: RedisTemplate<String, Any>,
+    @Qualifier("redisTemplateString")
+    private val redisString: RedisTemplate<String, String>,
     @Value("\${streams.formatting.key}") rawStreamKey: String,
     @Value("\${streams.formatting.group}") groupId: String,
     private val exec: ExecutionService,
     private val snippets: SnippetsClient,
     @Value("\${streams.dlq.formatting}") private val dlqKey: String,
-) : ResilientRedisStreamConsumer<SnippetsFormattingRulesUpdated>(sanitizeKey(rawStreamKey), groupId, redisJson) {
+    private val om: ObjectMapper,
+) : ResilientRedisStreamConsumer(sanitizeKey(rawStreamKey), groupId, redisString) {
 
     private val streamKeyForRetry: String = streamKey
     private val logger = LoggerFactory.getLogger(javaClass)
@@ -53,27 +54,14 @@ class FormattingConsumer(
         )
     }
 
-    @Suppress("UNCHECKED_CAST")
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>> {
-        val keySer = RedisSerializationContext.SerializationPair
-            .fromSerializer(StringRedisSerializer()) as RedisSerializationContext.SerializationPair<Any>
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions
+        .builder()
+        .pollTimeout(POLL_TIMEOUT)
+        .targetType(String::class.java)
+        .build()
 
-        val valueSer = RedisSerializationContext.SerializationPair
-            .fromSerializer(redisJson.valueSerializer) as RedisSerializationContext.SerializationPair<Any>
-
-        return (
-            StreamReceiver.StreamReceiverOptions
-                .builder()
-                .pollTimeout(POLL_TIMEOUT)
-                .keySerializer(keySer)
-                .serializer(valueSer)
-                .targetType(SnippetsFormattingRulesUpdated::class.java)
-                .build()
-            ) as StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsFormattingRulesUpdated>>
-    }
-
-    override fun onMessage(record: ObjectRecord<String, SnippetsFormattingRulesUpdated>) {
-        val event = record.value
+    override fun onMessage(record: ObjectRecord<String, String>) {
+        val event = om.readValue(record.value, SnippetsFormattingRulesUpdated::class.java)
         try {
             val content = snippets.getContent(event.snippetId)
             val res = exec.formatContent(
@@ -108,11 +96,11 @@ class FormattingConsumer(
     private fun retryOrDlq(ev: SnippetsFormattingRulesUpdated) {
         if (ev.attempt + 1 <= MAX_ATTEMPTS) {
             val next = ev.copy(attempt = ev.attempt + 1)
-            redisJson.opsForStream<String, Any>()
+            redisString.opsForStream<String, Any>()
                 .add(StreamRecords.newRecord().ofObject(next).withStreamKey(streamKeyForRetry))
             logger.info("Retry scheduled for snippetId={} attempt={}", ev.snippetId, next.attempt)
         } else {
-            redisJson.opsForStream<String, Any>()
+            redisString.opsForStream<String, Any>()
                 .add(StreamRecords.newRecord().ofObject(ev).withStreamKey(dlqKey))
             logger.error("Sent to DLQ={} snippetId={} after attempts={}", dlqKey, ev.snippetId, ev.attempt)
         }
