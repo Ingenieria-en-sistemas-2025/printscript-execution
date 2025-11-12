@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.printscript.execution.dto.LintReq
 import com.printscript.execution.service.ExecutionService
 import com.printscript.snippets.redis.events.SnippetsLintingRulesUpdated
+import jakarta.annotation.PostConstruct
 import org.austral.ingsis.redis.RedisStreamConsumer
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
@@ -25,6 +26,12 @@ class LintingConsumer(@Value("\${streams.linting.key}") rawStreamKey: String, @V
         groupId = rawGroup.trim().trim('"', '\''),
         redis = redis,
     ) {
+
+    @PostConstruct
+    fun started() {
+        println("[LintingConsumer] stream=$streamKey group=$groupId READY")
+    }
+
     override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions.builder()
         .pollTimeout(Duration.ofSeconds(POLL_TIMEOUT_SECONDS))
         .targetType(String::class.java)
