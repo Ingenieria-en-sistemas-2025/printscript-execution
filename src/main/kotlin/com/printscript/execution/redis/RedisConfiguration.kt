@@ -27,6 +27,7 @@ private const val STREAM_POLL_TIMEOUT_SECONDS = 3L
 @Configuration
 class RedisConfiguration(@Value("\${spring.data.redis.host}") private val host: String, @Value("\${spring.data.redis.port}") private val port: Int) {
     @Bean
+    @Primary
     fun stringTemplate(cf: RedisConnectionFactory): RedisTemplate<String, String> = RedisTemplate<String, String>().apply {
         setConnectionFactory(cf)
         keySerializer = StringRedisSerializer()
