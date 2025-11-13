@@ -4,12 +4,12 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.context.annotation.Lazy
 import org.springframework.http.MediaType
 import org.springframework.stereotype.Service
 import org.springframework.web.client.ResourceAccessException
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientResponseException
+import java.lang.RuntimeException
 import java.time.Instant
 
 @Service
@@ -22,26 +22,28 @@ class Auth0TokenService(
     private val clientSecret: String,
     @param:Value("\${auth0.audience}")
     private val audience: String,
-    @Lazy
     @Qualifier("plainRestClient")
     private val rest: RestClient,
 ) {
     private val logger = LoggerFactory.getLogger(Auth0TokenService::class.java)
     private var accessToken: String = ""
-    private var expiresAt: Instant = Instant.MIN
+    private var expiresAt: Instant = Instant.EPOCH
 
     companion object {
         private const val TOKEN_RENEW_WINDOW_SEC: Long = 60
     }
 
     fun getAccessToken(): String {
-        // Renueva el token si expira en menos de 60 segundos
-        if (Instant.now().isAfter(expiresAt.minusSeconds(TOKEN_RENEW_WINDOW_SEC))) {
+        val needsRefresh = accessToken.isBlank() ||
+            Instant.now().plusSeconds(TOKEN_RENEW_WINDOW_SEC).isAfter(expiresAt)
+
+        if (needsRefresh) {
             refreshToken()
         }
         return accessToken
     }
 
+    @Suppress("TooGenericExceptionThrown")
     private fun refreshToken() {
         logger.info("Token M2M expirado o próximo a expirar. Solicitando nuevo token a Auth0.")
 
@@ -62,17 +64,17 @@ class Auth0TokenService(
                 .body(requestBody)
                 .retrieve()
                 .body(TokenResponse::class.java)
-                ?: throw Auth0TokenException("Respuesta nula del endpoint de token de Auth0.")
+                ?: throw RuntimeException("Respuesta nula del endpoint de token de Auth0.")
 
             this.accessToken = response.accessToken
             this.expiresAt = Instant.now().plusSeconds(response.expiresIn.toLong())
             logger.info("Nuevo token M2M obtenido. Expira en {} segundos.", response.expiresIn)
         } catch (e: RestClientResponseException) {
             logger.error("Fallo al obtener el token M2M de Auth0 (HTTP ${e.statusCode.value()})", e)
-            throw Auth0TokenException("Fallo al obtener token M2M de Auth0.")
+            throw RuntimeException("Fallo al obtener token M2M de Auth0.")
         } catch (e: ResourceAccessException) {
             logger.error("Fallo de conexión con Auth0 (timeout o red)", e)
-            throw Auth0TokenException("Fallo al obtener token M2M de Auth0.")
+            throw RuntimeException("Fallo al obtener token M2M de Auth0.")
         }
     }
 
