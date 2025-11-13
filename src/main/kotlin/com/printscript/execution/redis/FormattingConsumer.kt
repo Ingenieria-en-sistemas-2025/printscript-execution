@@ -39,7 +39,7 @@ class FormattingConsumer(@Value("\${streams.formatting.key}") rawStreamKey: Stri
 
     override fun onMessage(record: ObjectRecord<String, String>) {
         val raw = record.value
-        println("[lint] raw=${raw.take(LOG_PREVIEW_CHARS)}")
+        println("[format] raw=${raw.take(LOG_PREVIEW_CHARS)}")
 
         val ev = om.readValue(raw, SnippetsFormattingRulesUpdated::class.java)
         val content = snippets.getContent(ev.snippetId)
