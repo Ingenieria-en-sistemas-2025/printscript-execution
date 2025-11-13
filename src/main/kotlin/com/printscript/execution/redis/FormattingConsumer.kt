@@ -37,23 +37,36 @@ class FormattingConsumer(@Value("\${streams.formatting.key}") rawStreamKey: Stri
         .targetType(String::class.java)
         .build()
 
+    @Suppress("TooGenericExceptionCaught")
     override fun onMessage(record: ObjectRecord<String, String>) {
         val raw = record.value
         println("[format] raw=${raw.take(LOG_PREVIEW_CHARS)}")
 
-        val ev = om.readValue(raw, SnippetsFormattingRulesUpdated::class.java)
-        val content = snippets.getContent(ev.snippetId)
+        val ev = try {
+            om.readValue(raw, SnippetsFormattingRulesUpdated::class.java)
+        } catch (e: Exception) {
+            println("[format][DESER] ${e.message}")
+            return
+        }
 
-        val res = exec.formatContent(
-            FormatReq(
-                language = ev.language,
-                version = ev.version,
-                content = content,
-                configText = ev.configText,
-                configFormat = ev.configFormat,
-                options = ev.options,
-            ),
-        )
-        snippets.saveFormatted(ev.snippetId, res.formattedContent)
+        try {
+            val content = snippets.getContent(ev.snippetId)
+
+            val res = exec.formatContent(
+                FormatReq(
+                    language = ev.language,
+                    version = ev.version,
+                    content = content,
+                    configText = ev.configText ?: "{}",
+                    configFormat = ev.configFormat ?: "json",
+                    options = ev.options,
+                ),
+            )
+
+            snippets.saveFormatted(ev.snippetId, res.formattedContent)
+            println("[format] saved ${ev.snippetId} len=${res.formattedContent.length}")
+        } catch (e: Exception) {
+            println("[format][ERR] ${e::class.java.simpleName}: ${e.message}")
+        }
     }
 }
