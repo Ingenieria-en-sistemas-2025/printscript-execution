@@ -11,6 +11,7 @@ import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientResponseException
 import java.lang.RuntimeException
 import java.time.Instant
+import org.springframework.web.client.RestClient.Builder as RestClientBuilder
 
 @Service
 class Auth0TokenService(
@@ -22,10 +23,10 @@ class Auth0TokenService(
     private val clientSecret: String,
     @param:Value("\${auth0.audience}")
     private val audience: String,
-    @Qualifier("plainRestClient")
-    private val rest: RestClient,
+    restBuilder: RestClientBuilder,
 ) {
     private val logger = LoggerFactory.getLogger(Auth0TokenService::class.java)
+    private val rest: RestClient = restBuilder.build()
     private var accessToken: String = ""
     private var expiresAt: Instant = Instant.EPOCH
 
