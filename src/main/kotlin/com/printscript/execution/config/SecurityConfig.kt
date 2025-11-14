@@ -35,6 +35,8 @@ class SecurityConfig(
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain = http
         .authorizeHttpRequests {
             it
+                .requestMatchers("/actuator/**")
+                .permitAll()
                 // (no necesita auth)
                 .requestMatchers(GET, "/ping").permitAll()
                 .requestMatchers(POST, "/parse").authenticated()
