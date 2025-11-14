@@ -20,11 +20,7 @@ class CorrelationIdFilter : OncePerRequestFilter() {
         const val CORRELATION_ID_HEADER = "X-Correlation-Id"
     }
 
-    override fun doFilterInternal(
-        request: HttpServletRequest,
-        response: HttpServletResponse,
-        filterChain: FilterChain,
-    ) {
+    override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
         val correlationId = request.getHeader(CORRELATION_ID_HEADER) ?: UUID.randomUUID().toString()
 
         MDC.put(CORRELATION_ID_KEY, correlationId)
