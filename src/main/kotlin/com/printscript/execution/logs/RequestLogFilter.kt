@@ -19,11 +19,7 @@ class RequestLogFilter : OncePerRequestFilter() {
         private const val NANO_TO_MILLISECOND = 1_000_000
     }
 
-    override fun doFilterInternal(
-        request: HttpServletRequest,
-        response: HttpServletResponse,
-        filterChain: FilterChain,
-    ) {
+    override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
         val method = request.method
         val uri = request.requestURI + (request.queryString?.let { "?$it" } ?: "")
 
