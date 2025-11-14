@@ -4,172 +4,75 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.printscript.execution.dto.LintReq
 import com.printscript.execution.service.ExecutionService
 import com.printscript.snippets.redis.events.SnippetsLintingRulesUpdated
-import org.slf4j.LoggerFactory
+import jakarta.annotation.PostConstruct
+import org.austral.ingsis.redis.RedisStreamConsumer
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.context.annotation.Profile
 import org.springframework.data.redis.connection.stream.ObjectRecord
-import org.springframework.data.redis.connection.stream.StreamRecords
 import org.springframework.data.redis.core.RedisTemplate
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer
-import org.springframework.data.redis.serializer.RedisSerializationContext
 import org.springframework.data.redis.stream.StreamReceiver
 import org.springframework.stereotype.Component
-import org.springframework.web.client.ResourceAccessException
-import org.springframework.web.client.RestClientException
-import org.springframework.web.client.RestClientResponseException
 import java.time.Duration
 
-private const val MAX_ATTEMPTS = 3
 private const val POLL_TIMEOUT_SECONDS = 10L
-private val POLL_TIMEOUT: Duration = Duration.ofSeconds(POLL_TIMEOUT_SECONDS)
+private const val LOG_PREVIEW_CHARS = 200
+private const val LOGS = 500
 
-@Profile("!test")
-@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
 @Component
-class LintingConsumer(
-    @Qualifier("redisTemplateJson")
-    private val redisJson: RedisTemplate<String, Any>,
-    @Value("\${streams.linting.key}") rawStreamKey: String,
-    @Value("\${streams.linting.group}") groupId: String,
-    private val exec: ExecutionService,
-    private val snippets: SnippetsClient,
-    @Value("\${streams.dlq.linting}") private val dlqKey: String,
-    private val om: ObjectMapper,
-) : ResilientRedisStreamConsumer<SnippetsLintingRulesUpdated>(
-    rawStreamKey,
-    groupId,
-    redisJson,
-) {
+@ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
+class LintingConsumer(@Value("\${streams.linting.key}") rawStreamKey: String, @Value("\${streams.linting.group}") rawGroup: String, private val om: ObjectMapper, private val exec: ExecutionService, private val snippets: SnippetsClient, @Qualifier("stringTemplate") redis: RedisTemplate<String, String>) :
+    RedisStreamConsumer<String>(
+        streamKey = rawStreamKey.trim().trim('"', '\''),
+        groupId = rawGroup.trim().trim('"', '\''),
+        redis = redis,
+    ) {
 
-    private val logger = LoggerFactory.getLogger(javaClass)
-    private val streamKeyForRetry: String = streamKey
-
-    init {
-        logger.info(
-            "STREAM RAW='{}'  CLEAN='{}'  RAW_BYTES={}",
-            rawStreamKey,
-            streamKey,
-            rawStreamKey.toCharArray().joinToString(",") { it.code.toString() },
-        )
+    @PostConstruct
+    fun started() {
+        println("[LintingConsumer] stream=$streamKey group=$groupId READY")
     }
 
-    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, SnippetsLintingRulesUpdated>> = StreamReceiver.StreamReceiverOptions
-        .builder()
-        .pollTimeout(POLL_TIMEOUT)
-        .targetType(SnippetsLintingRulesUpdated::class.java)
+    override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions.builder()
+        .pollTimeout(Duration.ofSeconds(POLL_TIMEOUT_SECONDS))
+        .targetType(String::class.java)
         .build()
 
-    override fun onMessage(record: ObjectRecord<String, SnippetsLintingRulesUpdated>) {
-        val event = record.value
+    @Suppress("TooGenericExceptionCaught")
+    override fun onMessage(record: ObjectRecord<String, String>) {
+        val raw = record.value
+        println("[lint] raw=${raw.take(LOG_PREVIEW_CHARS)}")
+
+        val ev: SnippetsLintingRulesUpdated = try {
+            om.readValue(raw, SnippetsLintingRulesUpdated::class.java)
+        } catch (e: Exception) {
+            println("[lint][DESER ERROR] ${e::class.java.name}: ${e.message}")
+            return
+        }
+
+        println("[lint] ev.ok id=${ev.snippetId} corr=${ev.correlationalId}")
+
         try {
-            val content = snippets.getContent(event.snippetId)
+            val content = snippets.getContent(ev.snippetId)
+
             val res = exec.lint(
                 LintReq(
-                    language = event.language,
-                    version = event.version,
+                    language = ev.language,
+                    version = ev.version,
                     content = content,
-                    configText = event.configText,
-                    configFormat = event.configFormat,
+                    configText = ev.configText,
+                    configFormat = ev.configFormat,
                 ),
             )
-            snippets.saveLint(event.snippetId, res.violations)
-        } catch (e: RestClientResponseException) {
-            logger.warn("HTTP error linting snippetId={} status={} body={}", event.snippetId, e.statusCode.value(), e.responseBodyAsString, e)
-            retryOrDlq(event)
-        } catch (e: ResourceAccessException) {
-            logger.warn("Resource access error linting snippetId={}: {}", event.snippetId, e.message, e)
-            retryOrDlq(event)
-        } catch (e: RestClientException) {
-            logger.warn("REST client error linting snippetId={}: {}", event.snippetId, e.message, e)
-            retryOrDlq(event)
-        } catch (e: IllegalArgumentException) {
-            logger.warn("Invalid args linting snippetId={}: {}", event.snippetId, e.message, e)
-            retryOrDlq(event)
-        } catch (e: IllegalStateException) {
-            logger.warn("Illegal state linting snippetId={}: {}", event.snippetId, e.message, e)
-            retryOrDlq(event)
-        }
-    }
 
-    @Suppress("TooGenericExceptionCaught")
-    private fun retryOrDlq(ev: SnippetsLintingRulesUpdated) {
-        try {
-            if (ev.attempt + 1 <= MAX_ATTEMPTS) {
-                val next = ev.copy(attempt = ev.attempt + 1)
-                redisJson.opsForStream<String, Any>()
-                    .add(
-                        StreamRecords
-                            .newRecord()
-                            .ofObject(next)
-                            .withStreamKey(streamKeyForRetry),
-                    )
-                logger.info(
-                    "Retry scheduled for snippetId={} attempt={}",
-                    ev.snippetId,
-                    next.attempt,
-                )
-            } else {
-                redisJson.opsForStream<String, Any>()
-                    .add(
-                        StreamRecords
-                            .newRecord()
-                            .ofObject(ev)
-                            .withStreamKey(dlqKey),
-                    )
-                logger.error(
-                    "Sent to DLQ={} snippetId={} after attempts={}",
-                    dlqKey,
-                    ev.snippetId,
-                    ev.attempt,
-                )
-
-                safeMarkFailed(ev)
-            }
-        } catch (ex: Exception) {
-            logger.error(
-                "Unexpected error retrying snippetId={} attempt={} -> {}",
-                ev.snippetId,
-                ev.attempt,
-                ex.message,
-                ex,
-            )
-        }
-    }
-
-    private fun safeMarkFailed(ev: SnippetsLintingRulesUpdated) {
-        try {
-            snippets.markLintFailed(ev.snippetId)
-        } catch (e: RestClientResponseException) {
-            logger.error(
-                "Notify lint failed (HTTP) snippetId={} status={} body={}",
-                ev.snippetId,
-                e.statusCode.value(),
-                e.responseBodyAsString,
-                e,
-            )
-        } catch (e: ResourceAccessException) {
-            logger.error(
-                "Notify lint failed (resource access) snippetId={}: {}",
-                ev.snippetId,
-                e.message,
-                e,
-            )
-        } catch (e: RestClientException) {
-            logger.error(
-                "Notify lint failed (rest client) snippetId={}: {}",
-                ev.snippetId,
-                e.message,
-                e,
-            )
-        } catch (e: IllegalStateException) {
-            logger.error(
-                "Notify lint failed (illegal state) snippetId={}: {}",
-                ev.snippetId,
-                e.message,
-                e,
-            )
+            snippets.saveLint(ev.snippetId, res.violations)
+            println("[lint] saved ${res.violations.size} violations for ${ev.snippetId}")
+        } catch (e: org.springframework.web.client.RestClientResponseException) {
+            println("[lint][HTTP body] ${e.responseBodyAsString?.take(LOGS)}")
+        } catch (e: org.springframework.web.client.ResourceAccessException) {
+            println("[lint][NETWORK] ${e::class.java.simpleName}: ${e.message}")
+        } catch (e: Exception) {
+            println("[lint][UNEXPECTED] ${e::class.java.name}: ${e.message}")
         }
     }
 }
