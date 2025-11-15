@@ -80,7 +80,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.austral.ingsis:redis-streams-mvc:0.1.13")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    implementation("io.printscript:contracts:0.1.0")
+    implementation("io.printscript:contracts:0.1.1")
 }
 
 configurations.testRuntimeClasspath {

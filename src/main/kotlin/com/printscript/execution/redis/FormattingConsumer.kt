@@ -1,9 +1,9 @@
 package com.printscript.execution.redis
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.printscript.execution.dto.FormatReq
 import com.printscript.execution.service.ExecutionService
 import io.printscript.contracts.events.FormattingRulesUpdated
+import io.printscript.contracts.formatter.FormatReq
 import jakarta.annotation.PostConstruct
 import org.austral.ingsis.redis.RedisStreamConsumer
 import org.springframework.beans.factory.annotation.Qualifier

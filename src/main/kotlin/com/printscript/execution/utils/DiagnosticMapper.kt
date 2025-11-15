@@ -1,6 +1,6 @@
 package com.printscript.execution.utils
 
-import com.printscript.execution.dto.DiagnosticDto
+import io.printscript.contracts.DiagnosticDto
 import org.printscript.analyzer.Diagnostic
 import org.printscript.common.LabeledError
 

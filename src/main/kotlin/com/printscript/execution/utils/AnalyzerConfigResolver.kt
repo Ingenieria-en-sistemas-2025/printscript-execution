@@ -1,8 +1,8 @@
 package com.printscript.execution.utils
 
-import com.printscript.execution.dto.LintReq
 import com.printscript.execution.error.ErrorMapping
 import com.printscript.execution.error.ExecException
+import io.printscript.contracts.linting.LintReq
 import org.printscript.analyzer.config.AnalyzerConfig
 import org.printscript.analyzer.loader.ConfigFormat
 import org.printscript.analyzer.loader.ConfigReader
@@ -13,7 +13,8 @@ import org.printscript.common.Success
 
 object AnalyzerConfigResolver {
     fun resolveAnalyzerConfig(req: LintReq): AnalyzerConfig {
-        if (req.configText.isNullOrBlank()) return AnalyzerConfig()
+        val cfgText = req.configText
+        if (cfgText.isNullOrBlank()) return AnalyzerConfig()
 
         val fmt = when (req.configFormat?.lowercase()) {
             null, "", "json" -> ConfigFormat.JSON
@@ -26,7 +27,7 @@ object AnalyzerConfigResolver {
             ConfigFormat.YAML -> YamlConfigReader()
         }
 
-        val bytes = req.configText.toByteArray(Charsets.UTF_8)
+        val bytes = cfgText.toByteArray(Charsets.UTF_8)
         return when (val result = reader.load(bytes.inputStream())) {
             is Success -> result.value
             is Failure -> throw ExecException(

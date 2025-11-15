@@ -1,7 +1,7 @@
 package com.printscript.execution.redis
 
-import com.printscript.execution.dto.DiagnosticDto
 import com.printscript.execution.service.ExecutionServiceImpl
+import io.printscript.contracts.DiagnosticDto
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value

@@ -1,15 +1,5 @@
 package com.printscript.execution.service
 
-import com.printscript.execution.dto.DiagnosticDto
-import com.printscript.execution.dto.FormatReq
-import com.printscript.execution.dto.FormatRes
-import com.printscript.execution.dto.LintReq
-import com.printscript.execution.dto.LintRes
-import com.printscript.execution.dto.ParseReq
-import com.printscript.execution.dto.ParseRes
-import com.printscript.execution.dto.Request
-import com.printscript.execution.dto.RunReq
-import com.printscript.execution.dto.RunRes
 import com.printscript.execution.dto.RunTestsReq
 import com.printscript.execution.dto.RunTestsRes
 import com.printscript.execution.dto.SingleTestResultDto
@@ -23,6 +13,16 @@ import com.printscript.execution.utils.FormatterOptionsResolver
 import com.printscript.execution.utils.QueueInputProvider
 import com.printscript.execution.utils.diagToDiagnosticDto
 import com.printscript.execution.utils.errorToDto
+import io.printscript.contracts.DiagnosticDto
+import io.printscript.contracts.Request
+import io.printscript.contracts.formatter.FormatReq
+import io.printscript.contracts.formatter.FormatRes
+import io.printscript.contracts.linting.LintReq
+import io.printscript.contracts.linting.LintRes
+import io.printscript.contracts.parse.ParseReq
+import io.printscript.contracts.parse.ParseRes
+import io.printscript.contracts.run.RunReq
+import io.printscript.contracts.run.RunRes
 import org.printscript.ast.StatementStream
 import org.printscript.ast.Step
 import org.printscript.cli.CliSupport

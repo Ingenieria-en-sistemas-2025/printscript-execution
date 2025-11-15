@@ -1,6 +1,5 @@
 package com.printscript.execution.utils
-
-import com.printscript.execution.dto.FormatReq
+import io.printscript.contracts.formatter.FormatReq
 import io.printscript.contracts.formatter.FormatterOptionsDto
 import org.printscript.formatter.config.FormatterConfig
 import org.printscript.formatter.config.FormatterOptions
