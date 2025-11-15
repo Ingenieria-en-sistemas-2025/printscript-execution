@@ -3,7 +3,7 @@ package com.printscript.execution.redis
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.printscript.execution.dto.FormatReq
 import com.printscript.execution.service.ExecutionService
-import com.printscript.snippets.redis.events.SnippetsFormattingRulesUpdated
+import io.printscript.contracts.events.FormattingRulesUpdated
 import jakarta.annotation.PostConstruct
 import org.austral.ingsis.redis.RedisStreamConsumer
 import org.springframework.beans.factory.annotation.Qualifier
@@ -43,7 +43,7 @@ class FormattingConsumer(@Value("\${streams.formatting.key}") rawStreamKey: Stri
         println("[format] raw=${raw.take(LOG_PREVIEW_CHARS)}")
 
         val ev = try {
-            om.readValue(raw, SnippetsFormattingRulesUpdated::class.java)
+            om.readValue(raw, FormattingRulesUpdated::class.java)
         } catch (e: Exception) {
             println("[format][DESER] ${e.message}")
             return

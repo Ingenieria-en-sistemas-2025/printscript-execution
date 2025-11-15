@@ -3,7 +3,7 @@ package com.printscript.execution.redis
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.printscript.execution.dto.LintReq
 import com.printscript.execution.service.ExecutionService
-import com.printscript.snippets.redis.events.SnippetsLintingRulesUpdated
+import io.printscript.contracts.events.LintingRulesUpdated
 import jakarta.annotation.PostConstruct
 import org.austral.ingsis.redis.RedisStreamConsumer
 import org.springframework.beans.factory.annotation.Qualifier
@@ -43,8 +43,8 @@ class LintingConsumer(@Value("\${streams.linting.key}") rawStreamKey: String, @V
         val raw = record.value
         println("[lint] raw=${raw.take(LOG_PREVIEW_CHARS)}")
 
-        val ev: SnippetsLintingRulesUpdated = try {
-            om.readValue(raw, SnippetsLintingRulesUpdated::class.java)
+        val ev: LintingRulesUpdated = try {
+            om.readValue(raw, LintingRulesUpdated::class.java)
         } catch (e: Exception) {
             println("[lint][DESER ERROR] ${e::class.java.name}: ${e.message}")
             return

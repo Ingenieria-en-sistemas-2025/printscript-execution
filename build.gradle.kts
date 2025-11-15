@@ -41,6 +41,15 @@ repositories {
             password = (findProperty("gpr.key") as String?) ?: System.getenv("GITHUB_TOKEN")
         }
     }
+
+    maven {
+        name = "GitHubPackages"
+        url = uri("https://maven.pkg.github.com/Ingenieria-en-sistemas-2025/printscript-contracts")
+        credentials {
+            username = (findProperty("gpr.user") as String?) ?: System.getenv("GITHUB_ACTOR")
+            password = (findProperty("gpr.key") as String?) ?: System.getenv("GITHUB_TOKEN")
+        }
+    }
 }
 val psver = "1.0.13"
 
@@ -71,6 +80,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.austral.ingsis:redis-streams-mvc:0.1.13")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    implementation("io.printscript:contracts:0.1.0")
 }
 
 configurations.testRuntimeClasspath {

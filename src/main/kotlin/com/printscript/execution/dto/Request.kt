@@ -1,5 +1,7 @@
 package com.printscript.execution.dto
 
+import io.printscript.contracts.formatter.FormatterOptionsDto
+
 sealed interface Request {
     val language: String
     val version: String
