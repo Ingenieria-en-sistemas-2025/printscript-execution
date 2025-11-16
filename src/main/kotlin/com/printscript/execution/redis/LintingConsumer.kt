@@ -39,7 +39,7 @@ class LintingConsumer(@Value("\${streams.linting.key}") rawStreamKey: String, @V
         .build()
 
     @Suppress("TooGenericExceptionCaught")
-    override fun onMessage(record: ObjectRecord<String, String>) {
+    public override fun onMessage(record: ObjectRecord<String, String>) {
         val raw = record.value
         println("[lint] raw=${raw.take(LOG_PREVIEW_CHARS)}")
 

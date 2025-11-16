@@ -38,7 +38,7 @@ class FormattingConsumer(@Value("\${streams.formatting.key}") rawStreamKey: Stri
         .build()
 
     @Suppress("TooGenericExceptionCaught")
-    override fun onMessage(record: ObjectRecord<String, String>) {
+    public override fun onMessage(record: ObjectRecord<String, String>) {
         val raw = record.value
         println("[format] raw=${raw.take(LOG_PREVIEW_CHARS)}")
 

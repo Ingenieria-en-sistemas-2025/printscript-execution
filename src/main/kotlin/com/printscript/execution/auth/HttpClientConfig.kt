@@ -11,8 +11,8 @@ import java.time.Duration
 class HttpClientConfig {
 
     companion object {
-        private const val CONNECT_TIMEOUT_SECONDS = 5L
-        private const val READ_TIMEOUT_SECONDS = 30L
+        private const val CONNECT_TIMEOUT_SECONDS = 5L // maximo para establecer conexion
+        private const val READ_TIMEOUT_SECONDS = 30L // máximo para esperar respuesta
     }
 
     @Bean("m2mRestTemplate")
@@ -20,7 +20,7 @@ class HttpClientConfig {
         val authInterceptor = ClientHttpRequestInterceptor { req, body, exec ->
             val token = tokenService.getAccessToken()
             req.headers.setBearerAuth(token)
-            exec.execute(req, body)
+            exec.execute(req, body) // aca ejecuta la request real
         }
 
         return RestTemplateBuilder()
@@ -30,6 +30,6 @@ class HttpClientConfig {
                     .withReadTimeout(Duration.ofSeconds(READ_TIMEOUT_SECONDS))
             }
             .additionalInterceptors(authInterceptor)
-            .build()
+            .build() // devuelve el rest template listo para usar.
     }
 }

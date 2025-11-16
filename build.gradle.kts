@@ -78,13 +78,9 @@ dependencies {
     implementation("org.austral.ingsis:redis-streams-mvc:0.1.13")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter")
-    implementation("org.austral.ingsis:redis-streams-mvc:0.1.13")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     implementation("io.printscript:contracts:0.1.1")
-}
-
-configurations.testRuntimeClasspath {
-    exclude(group = "org.austral.ingsis", module = "redis-streams-mvc")
+    testImplementation("io.mockk:mockk:1.13.11")
 }
 
 kotlin {
@@ -139,7 +135,7 @@ tasks.jacocoTestReport {
     }
 }
 
-tasks.register<JacocoCoverageVerification>("jacocoVerify") {
+tasks.jacocoTestCoverageVerification {
     violationRules {
         rule {
             limit {
@@ -151,7 +147,9 @@ tasks.register<JacocoCoverageVerification>("jacocoVerify") {
     }
 }
 
-tasks.check { dependsOn("detekt", "spotlessCheck", "jacocoVerify") }
+tasks.check {
+    dependsOn("detekt", "spotlessCheck", tasks.jacocoTestCoverageVerification)
+}
 
 // Git hooks
 val gitDir = layout.projectDirectory.dir(".git")

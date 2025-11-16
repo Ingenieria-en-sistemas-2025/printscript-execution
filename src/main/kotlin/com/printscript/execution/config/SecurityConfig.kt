@@ -51,7 +51,7 @@ class SecurityConfig(
             rs.jwt { jwt -> jwt.jwtAuthenticationConverter(permissionsConverter()) }
         }
         .csrf { it.disable() }
-        .cors { it.disable() }
+        .cors { it.disable() } // ver esto
         .build()
 
     private fun permissionsConverter(): Converter<Jwt, AbstractAuthenticationToken> {

@@ -12,27 +12,27 @@ import org.springframework.web.filter.OncePerRequestFilter
 import java.util.UUID
 
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
-class CorrelationIdFilter : OncePerRequestFilter() {
+@Order(Ordered.HIGHEST_PRECEDENCE) // se ejecuta primero que todos
+class CorrelationIdFilter : OncePerRequestFilter() { // solo una vez por request
 
     companion object {
         const val CORRELATION_ID_KEY = "correlation-id"
         const val CORRELATION_ID_HEADER = "X-Correlation-Id"
     }
 
-    override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
-        val correlationId = request.getHeader(CORRELATION_ID_HEADER) ?: UUID.randomUUID().toString()
+    public override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
+        val correlationId = request.getHeader(CORRELATION_ID_HEADER) ?: UUID.randomUUID().toString() // si viene lo usa, sino crea.
 
-        MDC.put(CORRELATION_ID_KEY, correlationId)
+        MDC.put(CORRELATION_ID_KEY, correlationId) // mapped diagnostic context -> todos los logs que se hagan dentro de este request van a incluir ese ID automáticamente
 
         NewRelic.addCustomParameter(CORRELATION_ID_KEY, correlationId)
 
-        response.setHeader(CORRELATION_ID_HEADER, correlationId)
+        response.setHeader(CORRELATION_ID_HEADER, correlationId) // para trazabilidad
 
         try {
             filterChain.doFilter(request, response)
         } finally {
-            MDC.remove(CORRELATION_ID_KEY)
+            MDC.remove(CORRELATION_ID_KEY) // limpia el contexto para que otro request no herede este correlation id
         }
     }
 }

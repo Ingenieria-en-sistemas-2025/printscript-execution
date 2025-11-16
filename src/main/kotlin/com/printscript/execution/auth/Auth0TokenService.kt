@@ -26,12 +26,12 @@ class Auth0TokenService(
     restBuilder: RestClientBuilder,
 ) {
     private val logger = LoggerFactory.getLogger(Auth0TokenService::class.java)
-    private val rest: RestClient = restBuilder.build()
+    private val rest: RestClient = restBuilder.build() // rest client para llmar a auth0
     private var accessToken: String = ""
     private var expiresAt: Instant = Instant.EPOCH
 
     companion object {
-        private const val TOKEN_RENEW_WINDOW_SEC: Long = 60
+        private const val TOKEN_RENEW_WINDOW_SEC: Long = 60 // margen de seguridad para renovar el token un poco antes de que expire.
     }
 
     fun getAccessToken(): String {
@@ -79,5 +79,5 @@ class Auth0TokenService(
         }
     }
 
-    private data class TokenResponse(@get:JsonProperty("access_token") val accessToken: String, @get:JsonProperty("expires_in") val expiresIn: Int, @get:JsonProperty("token_type") val tokenType: String)
+    data class TokenResponse(@get:JsonProperty("access_token") val accessToken: String, @get:JsonProperty("expires_in") val expiresIn: Int, @get:JsonProperty("token_type") val tokenType: String)
 }
