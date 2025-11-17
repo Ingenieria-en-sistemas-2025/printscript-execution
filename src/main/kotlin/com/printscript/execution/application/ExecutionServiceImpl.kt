@@ -16,7 +16,13 @@ import io.printscript.contracts.tests.RunSingleTestRes
 import org.springframework.stereotype.Service
 
 @Service
-class ExecutionServiceImpl(private val parseUseCase: ParseUseCase, private val lintUseCase: LintUseCase, private val formatUseCase: FormatUseCase, private val runUseCase: RunUseCase, private val runTestsUseCase: RunTestsUseCase) : ExecutionService {
+class ExecutionServiceImpl(
+    private val parseUseCase: ParseUseCase,
+    private val lintUseCase: LintUseCase,
+    private val formatUseCase: FormatUseCase,
+    private val runUseCase: RunUseCase,
+    private val runTestsUseCase: RunTestsUseCase,
+) : ExecutionService {
 
     override fun parse(req: ParseReq): ParseRes = parseUseCase.parse(req)
 

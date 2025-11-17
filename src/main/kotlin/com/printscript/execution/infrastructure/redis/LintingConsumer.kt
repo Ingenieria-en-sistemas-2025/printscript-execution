@@ -24,12 +24,18 @@ private const val LOGS = 500
 
 @Component
 @ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
-class LintingConsumer(@Value("\${streams.linting.key}") rawStreamKey: String, @Value("\${streams.linting.group}") rawGroup: String, private val om: ObjectMapper, private val exec: ExecutionService, private val snippets: SnippetsClient, @Qualifier("stringTemplate") redis: RedisTemplate<String, String>) :
-    RedisStreamConsumer<String>(
-        streamKey = rawStreamKey.trim().trim('"', '\''),
-        groupId = rawGroup.trim().trim('"', '\''),
-        redis = redis,
-    ) {
+class LintingConsumer(
+    @Value("\${streams.linting.key}") rawStreamKey: String,
+    @Value("\${streams.linting.group}") rawGroup: String,
+    private val om: ObjectMapper,
+    private val exec: ExecutionService,
+    private val snippets: SnippetsClient,
+    @Qualifier("stringTemplate") redis: RedisTemplate<String, String>,
+) : RedisStreamConsumer<String>(
+    streamKey = rawStreamKey.trim().trim('"', '\''),
+    groupId = rawGroup.trim().trim('"', '\''),
+    redis = redis,
+) {
 
     @PostConstruct
     fun started() {

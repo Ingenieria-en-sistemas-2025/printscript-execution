@@ -21,12 +21,18 @@ private const val LOG_PREVIEW_CHARS = 200
 
 @Component
 @ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
-class FormattingConsumer(@Value("\${streams.formatting.key}") rawStreamKey: String, @Value("\${streams.formatting.group}") rawGroup: String, private val om: ObjectMapper, private val exec: ExecutionService, private val snippets: SnippetsClient, @Qualifier("stringTemplate") redis: RedisTemplate<String, String>) :
-    RedisStreamConsumer<String>(
-        streamKey = rawStreamKey.trim().trim('"', '\''),
-        groupId = rawGroup.trim().trim('"', '\''),
-        redis = redis,
-    ) {
+class FormattingConsumer(
+    @Value("\${streams.formatting.key}") rawStreamKey: String,
+    @Value("\${streams.formatting.group}") rawGroup: String,
+    private val om: ObjectMapper,
+    private val exec: ExecutionService,
+    private val snippets: SnippetsClient,
+    @Qualifier("stringTemplate") redis: RedisTemplate<String, String>,
+) : RedisStreamConsumer<String>(
+    streamKey = rawStreamKey.trim().trim('"', '\''),
+    groupId = rawGroup.trim().trim('"', '\''),
+    redis = redis,
+) {
 
     @PostConstruct
     fun started() {

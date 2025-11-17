@@ -1,4 +1,3 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "2.2.10"
@@ -23,7 +22,7 @@ java {
 repositories {
     mavenCentral()
     maven {
-        name = "GitHubPackages"
+        name = "PrintscriptV1"
         url = uri("https://maven.pkg.github.com/Ingenieria-en-sistemas-2025/PrintScriptV1")
         credentials {
             username = (findProperty("gpr.user") as String?)
@@ -34,7 +33,7 @@ repositories {
     }
 
     maven {
-        name = "GitHubPackages"
+        name = "ClassRedisStreams"
         url = uri("https://maven.pkg.github.com/austral-ingsis/class-redis-streams")
         credentials {
             username = (findProperty("gpr.user") as String?) ?: System.getenv("GITHUB_ACTOR")
@@ -43,7 +42,7 @@ repositories {
     }
 
     maven {
-        name = "GitHubPackages"
+        name = "PrintscriptContracts"
         url = uri("https://maven.pkg.github.com/Ingenieria-en-sistemas-2025/printscript-contracts")
         credentials {
             username = (findProperty("gpr.user") as String?) ?: System.getenv("GITHUB_ACTOR")
@@ -55,28 +54,23 @@ val psver = "0.3.2"
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    implementation("org.austral.ingsis:redis-streams-mvc:0.1.13")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.printscript:runner:$psver")
-    implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
-    implementation("org.springframework.boot:spring-boot-starter-webflux")
-    implementation("com.newrelic.agent.java:newrelic-api:8.10.0")
-    implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.2.10"))
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    implementation("org.austral.ingsis:redis-streams-mvc:0.1.13")
-    implementation("org.springframework.boot:spring-boot-starter-data-redis")
-    implementation("org.springframework.boot:spring-boot-starter")
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
     implementation("io.printscript:contracts:0.1.1")
+    implementation("com.newrelic.agent.java:newrelic-api:8.10.0")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.mockk:mockk:1.13.11")
 }
 
 kotlin {
     compilerOptions {
-        freeCompilerArgs.addAll("-Xjsr305=strict")
+        freeCompilerArgs.addAll("-Xjsr305=strict") // trata las anotaciones Java como si fueran nativas de Kotlin
         freeCompilerArgs.add("-Xannotation-default-target=param-property")
     }
 }
@@ -86,7 +80,6 @@ tasks.withType<Test> {
 }
 
 tasks.test {
-    useJUnitPlatform()
     finalizedBy(tasks.jacocoTestReport)
 }
 
@@ -95,7 +88,7 @@ spotless {
         target("**/*.kt")
         ktlint("1.7.1").editorConfigOverride(
             mapOf(
-                "max_line_length" to "400",
+                "max_line_length" to "200",
                 "indent_size" to "4",
             ),
         )
