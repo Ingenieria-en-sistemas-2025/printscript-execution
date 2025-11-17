@@ -1,5 +1,8 @@
 package com.printscript.execution.utils
 
+import com.printscript.execution.domain.diagnostics.DiagnosticCollector
+import com.printscript.execution.domain.diagnostics.hasErrors
+import com.printscript.execution.domain.diagnostics.onlyWarnings
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.printscript.analyzer.Diagnostic
 import org.printscript.analyzer.Severity

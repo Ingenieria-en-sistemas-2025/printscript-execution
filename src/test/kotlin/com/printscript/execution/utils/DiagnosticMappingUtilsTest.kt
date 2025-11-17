@@ -1,5 +1,6 @@
 package com.printscript.execution.utils
 
+import com.printscript.execution.domain.diagnostics.diagToDiagnosticDto
 import io.printscript.contracts.DiagnosticDto
 import org.printscript.analyzer.Diagnostic
 import org.printscript.analyzer.Severity

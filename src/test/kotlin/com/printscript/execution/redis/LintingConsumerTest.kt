@@ -2,7 +2,9 @@ package com.printscript.execution.redis
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
-import com.printscript.execution.service.ExecutionService
+import com.printscript.execution.application.ExecutionService
+import com.printscript.execution.infrastructure.redis.LintingConsumer
+import com.printscript.execution.infrastructure.snippets.SnippetsClient
 import io.mockk.Called
 import io.mockk.Runs
 import io.mockk.every
