@@ -1,12 +1,13 @@
 package com.printscript.execution.model
 
-import com.printscript.execution.controller.ExecutionController
-import com.printscript.execution.dto.RunTestCaseDto
-import com.printscript.execution.dto.RunTestsReq
-import com.printscript.execution.dto.RunTestsRes
-import com.printscript.execution.dto.SingleTestResultDto
-import com.printscript.execution.dto.SummaryDto
-import com.printscript.execution.service.ExecutionServiceImpl
+import com.printscript.execution.application.ExecutionService
+import com.printscript.execution.application.ExecutionServiceImpl
+import com.printscript.execution.domain.RunTestCaseDto
+import com.printscript.execution.domain.RunTestsReq
+import com.printscript.execution.domain.RunTestsRes
+import com.printscript.execution.domain.SingleTestResultDto
+import com.printscript.execution.domain.SummaryDto
+import com.printscript.execution.web.ExecutionController
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -19,13 +20,14 @@ import io.printscript.contracts.parse.ParseRes
 import io.printscript.contracts.run.RunReq
 import io.printscript.contracts.run.RunRes
 import io.printscript.contracts.tests.RunSingleTestReq
+import io.printscript.contracts.tests.RunSingleTestRes
 import org.springframework.http.HttpStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class ExecutionControllerTest {
 
-    private val service = mockk<ExecutionServiceImpl>()
+    private val service = mockk<ExecutionService>()
     private val controller = ExecutionController(service)
 
     @Test
@@ -101,7 +103,7 @@ class ExecutionControllerTest {
     }
 
     @Test
-    fun `runTest wrapea runTests y devuelve solo el resultado unico`() {
+    fun `runTest delega en service runSingleTest`() {
         val singleReq = RunSingleTestReq(
             language = "printscript",
             version = "1.1",
@@ -111,37 +113,18 @@ class ExecutionControllerTest {
             options = null,
         )
 
-        val wrapperReq = RunTestsReq(
-            language = singleReq.language,
-            version = singleReq.version,
-            content = singleReq.content,
-            testCases = listOf(RunTestCaseDto(singleReq.inputs, singleReq.expectedOutputs)),
-            options = singleReq.options,
-        )
-
-        val singleResult = SingleTestResultDto(
-            index = 0,
+        val expected = RunSingleTestRes(
             status = "PASS",
-            expected = listOf("1"),
             actual = listOf("1"),
             mismatchAt = null,
-            reason = null,
             diagnostic = null,
         )
-        val expectedRunTestsRes = RunTestsRes(
-            summary = SummaryDto(total = 1, passed = 1),
-            results = listOf(singleResult),
-        )
 
-        every { service.runTests(wrapperReq) } returns expectedRunTestsRes
+        every { service.runSingleTest(singleReq) } returns expected
 
         val res = controller.runTest(singleReq)
 
-        assertEquals(singleResult.status, res.status)
-        assertEquals(singleResult.actual, res.actual)
-        assertEquals(singleResult.mismatchAt, res.mismatchAt)
-        assertEquals(singleResult.diagnostic, res.diagnostic)
-
-        verify(exactly = 1) { service.runTests(wrapperReq) }
+        assertEquals(expected, res)
+        verify(exactly = 1) { service.runSingleTest(singleReq) }
     }
 }

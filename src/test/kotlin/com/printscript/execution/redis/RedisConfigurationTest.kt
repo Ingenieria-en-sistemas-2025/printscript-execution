@@ -1,5 +1,6 @@
 package com.printscript.execution.redis
 
+import com.printscript.execution.infrastructure.redis.RedisConfiguration
 import org.springframework.data.redis.connection.RedisConnectionFactory
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.serializer.StringRedisSerializer

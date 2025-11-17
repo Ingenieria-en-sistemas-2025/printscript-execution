@@ -1,7 +1,7 @@
 package com.printscript.execution.snippets
 
-import com.printscript.execution.redis.ContentDto
-import com.printscript.execution.redis.SnippetsClient
+import com.printscript.execution.infrastructure.snippets.ContentDto
+import com.printscript.execution.infrastructure.snippets.SnippetsClient
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify

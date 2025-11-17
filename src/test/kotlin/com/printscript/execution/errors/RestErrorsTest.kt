@@ -1,8 +1,8 @@
 package com.printscript.execution.errors
 
-import com.printscript.execution.error.ApiDiagnostic
-import com.printscript.execution.error.ExecException
-import com.printscript.execution.error.RestErrors
+import com.printscript.execution.domain.diagnostics.ApiDiagnostic
+import com.printscript.execution.domain.diagnostics.ExecException
+import com.printscript.execution.web.RestErrors
 import org.junit.jupiter.api.Assertions.assertEquals
 import kotlin.test.Test
 

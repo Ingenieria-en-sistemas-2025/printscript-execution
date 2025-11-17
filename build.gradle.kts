@@ -51,7 +51,7 @@ repositories {
         }
     }
 }
-val psver = "1.0.13"
+val psver = "0.3.2"
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
