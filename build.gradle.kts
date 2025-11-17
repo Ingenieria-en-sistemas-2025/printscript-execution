@@ -71,7 +71,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("com.newrelic.agent.java:newrelic-api:8.10.0")
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.2.10"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
