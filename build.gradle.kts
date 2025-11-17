@@ -111,12 +111,27 @@ detekt {
 
 jacoco { toolVersion = "0.8.10" }
 
+val jacocoExcludes =
+    listOf(
+        "com/printscript/execution/ExecutionApplication*",
+        "com/printscript/execution/ExecutionApplicationKt*",
+    )
+
 tasks.jacocoTestReport {
     reports {
         xml.required.set(true)
         html.required.set(true)
         csv.required.set(false)
     }
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(jacocoExcludes)
+                }
+            },
+        ),
+    )
 }
 
 tasks.jacocoTestCoverageVerification {
@@ -129,6 +144,15 @@ tasks.jacocoTestCoverageVerification {
             }
         }
     }
+    classDirectories.setFrom(
+        files(
+            classDirectories.files.map {
+                fileTree(it) {
+                    exclude(jacocoExcludes)
+                }
+            },
+        ),
+    )
 }
 
 tasks.check {
