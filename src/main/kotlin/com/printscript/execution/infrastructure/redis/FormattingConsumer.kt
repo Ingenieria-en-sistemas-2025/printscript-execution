@@ -1,12 +1,16 @@
 package com.printscript.execution.infrastructure.redis
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.newrelic.api.agent.NewRelic
 import com.printscript.execution.application.ExecutionService
 import com.printscript.execution.infrastructure.snippets.SnippetsClient
+import com.printscript.execution.logs.CorrelationIdFilter.Companion.CORRELATION_ID_KEY
 import io.printscript.contracts.events.FormattingRulesUpdated
 import io.printscript.contracts.formatter.FormatReq
 import jakarta.annotation.PostConstruct
 import org.austral.ingsis.redis.RedisStreamConsumer
+import org.slf4j.LoggerFactory
+import org.slf4j.MDC
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -34,9 +38,11 @@ class FormattingConsumer(
     redis = redis,
 ) {
 
+    private val logger = LoggerFactory.getLogger(FormattingConsumer::class.java)
+
     @PostConstruct
     fun started() {
-        println("[Formatter consumer] stream=$streamKey group=$groupId READY")
+        logger.info("FormattingConsumer READY stream={} group={}", streamKey, groupId)
     }
 
     override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions.builder()
@@ -47,18 +53,28 @@ class FormattingConsumer(
     @Suppress("TooGenericExceptionCaught")
     public override fun onMessage(record: ObjectRecord<String, String>) {
         val raw = record.value
-        println("[format] raw=${raw.take(LOG_PREVIEW_CHARS)}")
+        logger.info("[format] message received rawPreview={}", raw.take(LOG_PREVIEW_CHARS))
 
-        val ev = try {
+        val ev: FormattingRulesUpdated = try {
             om.readValue(raw, FormattingRulesUpdated::class.java)
         } catch (e: Exception) {
-            println("[format][DESER] ${e.message}")
+            logger.error("[format][DESER] {}", e.message, e)
             return
         }
 
-        try {
-            val content = snippets.getContent(ev.snippetId)
+        val corrId = ev.correlationalId ?: "format-${ev.snippetId}"
+        MDC.put(CORRELATION_ID_KEY, corrId)
+        NewRelic.addCustomParameter(CORRELATION_ID_KEY, corrId)
 
+        try {
+            logger.info(
+                "[format] event ok snippetId={} lang={} version={} corrId={}",
+                ev.snippetId,
+                ev.language,
+                ev.version,
+                corrId,
+            )
+            val content = snippets.getContent(ev.snippetId)
             val res = exec.formatContent(
                 FormatReq(
                     language = ev.language,
@@ -69,11 +85,17 @@ class FormattingConsumer(
                     options = ev.options,
                 ),
             )
-
             snippets.saveFormatted(ev.snippetId, res.formattedContent)
-            println("[format] saved ${ev.snippetId} len=${res.formattedContent.length}")
+
+            logger.info(
+                "[format] saved snippetId={} formattedLen={}",
+                ev.snippetId,
+                res.formattedContent.length,
+            )
         } catch (e: Exception) {
-            println("[format][ERR] ${e::class.java.simpleName}: ${e.message}")
+            logger.error("[format][ERR] {}: {}", e::class.java.simpleName, e.message, e)
+        } finally {
+            MDC.remove(CORRELATION_ID_KEY)
         }
     }
 }

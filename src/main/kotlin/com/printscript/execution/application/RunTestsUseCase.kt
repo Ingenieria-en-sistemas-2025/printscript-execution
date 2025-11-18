@@ -22,8 +22,10 @@ class RunTestsUseCase(private val runners: LanguageRunnerRegistry, private val r
 
     fun runTests(req: RunTestsReq): RunTestsRes {
         logger.info(
-            "Request received for running ${req.testCases.size} tests " +
-                "(Language: ${req.language}, Version: ${req.version})",
+            "RunTestsUseCase.runTests: cases={} lang={} version={}",
+            req.testCases.size,
+            req.language,
+            req.version,
         )
 
         val runner = runners.runnerFor(req.language)
@@ -39,8 +41,10 @@ class RunTestsUseCase(private val runners: LanguageRunnerRegistry, private val r
         val passed = results.count { it.status == PASS }
 
         logger.info(
-            "Test run complete. Total: ${results.size}, " +
-                "Passed: $passed, Failed/Error: ${results.size - passed}",
+            "RunTestsUseCase.runTests: completed total={} passed={} failedOrError={}",
+            results.size,
+            passed,
+            results.size - passed,
         )
 
         return RunTestsRes(

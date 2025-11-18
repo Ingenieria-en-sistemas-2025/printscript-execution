@@ -37,19 +37,3 @@ streams:
 newrelic:
   logs:
     enabled: true
-
-
-logging:
-  level:
-    org.springframework.security: DEBUG
-    org.springframework.security.web: DEBUG
-    org.springframework.security.oauth2: DEBUG
-    root: INFO
-    org.springframework.data.redis.stream: DEBUG
-    org.springframework.data.redis.serializer: DEBUG
-    org.springframework.data.redis.connection: DEBUG
-    io.lettuce.core: DEBUG           # pasar a DEBUG si sospechás networking
-    reactor.core.publisher: INFO
-    org.springframework.data.redis: DEBUG
-  pattern:
-    console: "%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
