@@ -10,7 +10,7 @@ import org.springframework.web.filter.OncePerRequestFilter
 import kotlin.system.measureNanoTime
 
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE + 1) // despues del correlational id
+@Order(Ordered.HIGHEST_PRECEDENCE + 1)
 class RequestLogFilter : OncePerRequestFilter() {
 
     private val log = logger
@@ -22,6 +22,8 @@ class RequestLogFilter : OncePerRequestFilter() {
     public override fun doFilterInternal(request: HttpServletRequest, response: HttpServletResponse, filterChain: FilterChain) {
         val method = request.method
         val uri = request.requestURI + (request.queryString?.let { "?$it" } ?: "")
+        val fullUri = "$method $uri"
+        log.info("START - $fullUri")
 
         var status: Int
         val elapsedMs = measureNanoTime {
@@ -29,6 +31,6 @@ class RequestLogFilter : OncePerRequestFilter() {
         }.let { it / NANO_TO_MILLISECOND }
 
         status = response.status
-        log.info("$method $uri - $status (${elapsedMs}ms)")
+        log.info("END - $fullUri - $status (${elapsedMs}ms)")
     }
 }
