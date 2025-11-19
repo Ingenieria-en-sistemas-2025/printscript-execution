@@ -12,12 +12,25 @@ class ParseUseCase(private val runners: LanguageRunnerRegistry) {
     private val logger = LoggerFactory.getLogger(ParseUseCase::class.java)
 
     fun parse(req: ParseReq): ParseRes {
+        logger.info(
+            "ParseUseCase.parse: lang={} version={} contentLen={}",
+            req.language,
+            req.version,
+            req.content.length,
+        )
+
         val runner = runners.runnerFor(req.language)
         val diags = runner.validate(
             language = req.language,
             version = req.version,
             content = req.content,
         )
+
+        logger.info(
+            "ParseUseCase.parse: diagnostics={}",
+            diags.size,
+        )
+
         return ParseRes(valid = diags.isEmpty(), diagnostics = diags)
     }
 }

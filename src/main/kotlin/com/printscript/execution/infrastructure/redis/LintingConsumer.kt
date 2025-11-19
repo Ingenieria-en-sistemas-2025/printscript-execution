@@ -1,12 +1,16 @@
 package com.printscript.execution.infrastructure.redis
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.newrelic.api.agent.NewRelic
 import com.printscript.execution.application.ExecutionService
 import com.printscript.execution.infrastructure.snippets.SnippetsClient
+import com.printscript.execution.logs.CorrelationIdFilter.Companion.CORRELATION_ID_KEY
 import io.printscript.contracts.events.LintingRulesUpdated
 import io.printscript.contracts.linting.LintReq
 import jakarta.annotation.PostConstruct
 import org.austral.ingsis.redis.RedisStreamConsumer
+import org.slf4j.LoggerFactory
+import org.slf4j.MDC
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -24,16 +28,24 @@ private const val LOGS = 500
 
 @Component
 @ConditionalOnProperty(prefix = "streams", name = ["enabled"], havingValue = "true", matchIfMissing = true)
-class LintingConsumer(@Value("\${streams.linting.key}") rawStreamKey: String, @Value("\${streams.linting.group}") rawGroup: String, private val om: ObjectMapper, private val exec: ExecutionService, private val snippets: SnippetsClient, @Qualifier("stringTemplate") redis: RedisTemplate<String, String>) :
-    RedisStreamConsumer<String>(
-        streamKey = rawStreamKey.trim().trim('"', '\''),
-        groupId = rawGroup.trim().trim('"', '\''),
-        redis = redis,
-    ) {
+class LintingConsumer(
+    @Value("\${streams.linting.key}") rawStreamKey: String,
+    @Value("\${streams.linting.group}") rawGroup: String,
+    private val om: ObjectMapper,
+    private val exec: ExecutionService,
+    private val snippets: SnippetsClient,
+    @Qualifier("stringTemplate") redis: RedisTemplate<String, String>,
+) : RedisStreamConsumer<String>(
+    streamKey = rawStreamKey.trim().trim('"', '\''),
+    groupId = rawGroup.trim().trim('"', '\''),
+    redis = redis,
+) {
+
+    private val logger = LoggerFactory.getLogger(LintingConsumer::class.java)
 
     @PostConstruct
     fun started() {
-        println("[LintingConsumer] stream=$streamKey group=$groupId READY")
+        logger.info("LintingConsumer READY stream={} group={}", streamKey, groupId)
     }
 
     override fun options(): StreamReceiver.StreamReceiverOptions<String, ObjectRecord<String, String>> = StreamReceiver.StreamReceiverOptions.builder()
@@ -44,18 +56,27 @@ class LintingConsumer(@Value("\${streams.linting.key}") rawStreamKey: String, @V
     @Suppress("TooGenericExceptionCaught")
     public override fun onMessage(record: ObjectRecord<String, String>) {
         val raw = record.value
-        println("[lint] raw=${raw.take(LOG_PREVIEW_CHARS)}")
+        logger.info("[lint] message received rawPreview={}", raw.take(LOG_PREVIEW_CHARS))
 
         val ev: LintingRulesUpdated = try {
             om.readValue(raw, LintingRulesUpdated::class.java)
         } catch (e: Exception) {
-            println("[lint][DESER ERROR] ${e::class.java.name}: ${e.message}")
+            logger.error("[lint][DESER ERROR] {}: {}", e::class.java.name, e.message, e)
             return
         }
 
-        println("[lint] ev.ok id=${ev.snippetId} corr=${ev.correlationalId}")
+        val corrId = ev.correlationalId ?: "lint-${ev.snippetId}"
+        MDC.put("correlationId", corrId)
+        NewRelic.addCustomParameter(CORRELATION_ID_KEY, corrId)
 
         try {
+            logger.info(
+                "[lint] event ok snippetId={} corrId={} lang={} version={}",
+                ev.snippetId,
+                ev.correlationalId,
+                ev.language,
+                ev.version,
+            )
             val content = snippets.getContent(ev.snippetId)
 
             val res = exec.lint(
@@ -69,13 +90,25 @@ class LintingConsumer(@Value("\${streams.linting.key}") rawStreamKey: String, @V
             )
 
             snippets.saveLint(ev.snippetId, res.violations)
-            println("[lint] saved ${res.violations.size} violations for ${ev.snippetId}")
+            logger.info(
+                "[lint] saved violations={} snippetId={}",
+                res.violations.size,
+                ev.snippetId,
+            )
         } catch (e: RestClientResponseException) {
-            println("[lint][HTTP body] ${e.responseBodyAsString?.take(LOGS)}")
+            logger.error(
+                "[lint][HTTP] status={} bodyPreview={} snippetId={}",
+                e.statusCode.value(),
+                e.responseBodyAsString?.take(LOGS),
+                ev.snippetId,
+                e,
+            )
         } catch (e: ResourceAccessException) {
-            println("[lint][NETWORK] ${e::class.java.simpleName}: ${e.message}")
+            logger.error("[lint][NETWORK] {}: {}", e::class.java.simpleName, e.message, e)
         } catch (e: Exception) {
-            println("[lint][UNEXPECTED] ${e::class.java.name}: ${e.message}")
+            logger.error("[lint][UNEXPECTED] {}: {}", e::class.java.name, e.message, e)
+        } finally {
+            MDC.remove("correlationId")
         }
     }
 }
