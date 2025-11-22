@@ -36,3 +36,8 @@ logging:
     reactor.core.publisher: INFO    # útil para ver reintentos/retries
   pattern:
     console: "%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
+
+execution:
+  languages:
+    printscript:
+      name: printscript

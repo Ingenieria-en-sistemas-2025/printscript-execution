@@ -37,3 +37,8 @@ streams:
 newrelic:
   logs:
     enabled: true
+
+execution:
+  languages:
+    printscript:
+      name: printscript

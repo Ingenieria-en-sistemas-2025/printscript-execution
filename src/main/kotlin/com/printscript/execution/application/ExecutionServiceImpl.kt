@@ -44,7 +44,7 @@ class ExecutionServiceImpl(
         )
         val res = runTestsUseCase.runTests(wrapper).results.first() // siempre 1
         return RunSingleTestRes(
-            status = res.status,
+            status = res.status.toString(),
             actual = res.actual,
             mismatchAt = res.mismatchAt,
             diagnostic = res.diagnostic,

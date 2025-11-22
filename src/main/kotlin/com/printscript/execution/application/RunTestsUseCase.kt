@@ -12,10 +12,6 @@ import io.printscript.contracts.run.RunReq
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
-private const val PASS = "PASS"
-private const val FAIL = "FAIL"
-private const val ERROR = "ERROR"
-
 @Service
 class RunTestsUseCase(private val runners: LanguageRunnerRegistry, private val runUseCase: RunUseCase) {
     private val logger = LoggerFactory.getLogger(RunTestsUseCase::class.java)
@@ -38,7 +34,7 @@ class RunTestsUseCase(private val runners: LanguageRunnerRegistry, private val r
         }
 
         val results = req.testCases.indices.map { idx -> runOneTestCase(req, idx) }
-        val passed = results.count { it.status == PASS }
+        val passed = results.count { it.status == TestStatus.PASS }
 
         logger.info(
             "RunTestsUseCase.runTests: completed total={} passed={} failedOrError={}",
@@ -67,19 +63,11 @@ class RunTestsUseCase(private val runners: LanguageRunnerRegistry, private val r
         return req.testCases.mapIndexed { i, _ ->
             SingleTestResultDto(
                 index = i,
-                status = ERROR,
+                status = TestStatus.ERROR,
                 reason = diag.message,
                 diagnostic = diag,
             )
         }
-    }
-
-    private fun evaluateOutputs(expected: List<String>, actual: List<String>): Pair<String, Int?> {
-        val n = minOf(expected.size, actual.size)
-        for (i in 0 until n) {
-            if (expected[i] != actual[i]) return FAIL to i
-        }
-        return if (expected.size == actual.size) PASS to null else FAIL to n
     }
 
     private fun runOneTestCase(req: RunTestsReq, index: Int): SingleTestResultDto {
@@ -109,12 +97,24 @@ class RunTestsUseCase(private val runners: LanguageRunnerRegistry, private val r
         } catch (ex: ExecException) {
             SingleTestResultDto(
                 index = index,
-                status = ERROR,
+                status = TestStatus.ERROR,
                 reason = ex.message,
                 diagnostic = ex.diagnostic?.let { d ->
                     DiagnosticDto(d.code, d.message, d.line, d.column)
                 },
             )
+        }
+    }
+
+    private fun evaluateOutputs(expected: List<String>, actual: List<String>): Pair<TestStatus, Int?> {
+        val n = minOf(expected.size, actual.size)
+        for (i in 0 until n) {
+            if (expected[i] != actual[i]) return TestStatus.FAIL to i
+        }
+        return if (expected.size == actual.size) {
+            TestStatus.PASS to null
+        } else {
+            TestStatus.FAIL to n
         }
     }
 }

@@ -13,23 +13,25 @@ import org.printscript.runner.helpers.QueueInputProvider
 import org.printscript.runner.helpers.VersionMapper
 import org.printscript.runner.runners.Runner
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.io.ByteArrayInputStream
 
 @Component
-class PrintScriptRunnerAdapter : LanguageRunnerPort {
-
-    override val language: String = "printscript"
+class PrintScriptRunnerAdapter(
+    @Value("\${execution.languages.printscript.name:printscript}")
+    override val language: String = "printscript",
+) : LanguageRunnerPort {
 
     private val logger = LoggerFactory.getLogger(PrintScriptRunnerAdapter::class.java)
 
     private fun parseVersion(version: String) = VersionMapper.parse(version)
 
     override fun validate(language: String, version: String, content: String): List<DiagnosticDto> {
-        val v = parseVersion(version)
+        val version = parseVersion(version)
         val io = ProgramIo(source = content)
 
-        return when (val res = Runner.parse(v, io)) {
+        return when (val res = Runner.parse(version, io)) {
             is Success -> res.value.map { d ->
                 DiagnosticDto(
                     ruleId = d.ruleId,
@@ -46,13 +48,13 @@ class PrintScriptRunnerAdapter : LanguageRunnerPort {
     }
 
     override fun lint(language: String, version: String, content: String, configText: String?): List<DiagnosticDto> {
-        val v = parseVersion(version)
+        val version = parseVersion(version)
         val io = ProgramIo(source = content)
         val configStream = configText?.let { ByteArrayInputStream(it.toByteArray(Charsets.UTF_8)) }
 
         return when (
             val res = Runner.analyzeWithConfigStream(
-                v = v,
+                v = version,
                 io = io,
                 config = configStream,
                 onConfigError = { msg -> logger.warn("Analyzer config error: $msg") },
@@ -67,13 +69,13 @@ class PrintScriptRunnerAdapter : LanguageRunnerPort {
     }
 
     override fun format(language: String, version: String, content: String, configText: String?): String {
-        val v = parseVersion(version)
+        val version = parseVersion(version)
         val io = ProgramIo(source = content)
 
         val options: FormatterOptions =
             FormatterOptionsLoader.fromBytes(configText?.toByteArray(Charsets.UTF_8))
 
-        return when (val res = Runner.format(v, io, options)) {
+        return when (val res = Runner.format(version, io, options)) {
             is Success -> res.value
             is Failure -> {
                 logger.error("Format failed: ${res.error.message}")
@@ -83,7 +85,7 @@ class PrintScriptRunnerAdapter : LanguageRunnerPort {
     }
 
     override fun execute(language: String, version: String, content: String, inputs: List<String>): RunRes {
-        val v = parseVersion(version)
+        val version = parseVersion(version)
 
         val io = ProgramIo(
             source = content,
@@ -95,7 +97,7 @@ class PrintScriptRunnerAdapter : LanguageRunnerPort {
             outputs += line
         }
 
-        return when (val res = Runner.execute(v, io, printer, collect = false)) {
+        return when (val res = Runner.execute(version, io, printer, collect = false)) {
             is Success -> RunRes(outputs = outputs)
             is Failure -> {
                 logger.error("Execute failed: ${res.error.message}")

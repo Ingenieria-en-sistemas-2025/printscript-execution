@@ -6,12 +6,11 @@ import com.printscript.execution.application.LintUseCase
 import com.printscript.execution.application.ParseUseCase
 import com.printscript.execution.application.RunTestsUseCase
 import com.printscript.execution.application.RunUseCase
+import com.printscript.execution.application.TestStatus
 import com.printscript.execution.domain.RunTestCaseDto
 import com.printscript.execution.domain.RunTestsReq
 import com.printscript.execution.domain.diagnostics.ExecException
 import com.printscript.execution.domain.language.DefaultLanguageRunnerRegistry
-import com.printscript.execution.domain.language.LanguageRunnerPort
-import com.printscript.execution.domain.language.LanguageRunnerRegistry
 import com.printscript.execution.domain.language.PrintScriptRunnerAdapter
 import io.printscript.contracts.formatter.FormatReq
 import io.printscript.contracts.linting.LintReq
@@ -102,7 +101,7 @@ class ExecutionServiceImplTest {
 
         assertEquals(1, res.summary.total)
         assertEquals(1, res.summary.passed)
-        assertEquals("PASS", res.results.first().status)
+        assertEquals(TestStatus.PASS, res.results.first().status)
         assertEquals(emptyList<String>(), res.results.first().expected)
         assertEquals(emptyList<String>(), res.results.first().actual)
         assertNull(res.results.first().mismatchAt)
@@ -129,7 +128,7 @@ class ExecutionServiceImplTest {
         // nadie pasa
         assertEquals(0, res.summary.passed)
         val result = res.results.first()
-        assertEquals("FAIL", result.status)
+        assertEquals(TestStatus.FAIL, result.status)
         assertEquals(listOf("1"), result.expected)
         assertEquals(emptyList<String>(), result.actual)
         // evaluateOutputs devuelve n = min(expected, actual) = 0
@@ -233,7 +232,7 @@ class ExecutionServiceImplTest {
         assertEquals(1, res.summary.total)
         assertEquals(0, res.summary.passed)
         val result = res.results.first()
-        assertEquals("ERROR", result.status)
+        assertEquals(TestStatus.ERROR, result.status)
         assertEquals("PS-SYNTAX", result.diagnostic?.ruleId)
     }
 
