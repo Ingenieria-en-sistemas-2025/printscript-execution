@@ -66,7 +66,7 @@ class LintingConsumer(
         }
 
         val corrId = ev.correlationalId ?: "lint-${ev.snippetId}"
-        MDC.put("correlationId", corrId)
+        MDC.put(CORRELATION_ID_KEY, corrId)
         NewRelic.addCustomParameter(CORRELATION_ID_KEY, corrId)
 
         try {
@@ -108,7 +108,7 @@ class LintingConsumer(
         } catch (e: Exception) {
             logger.error("[lint][UNEXPECTED] {}: {}", e::class.java.name, e.message, e)
         } finally {
-            MDC.remove("correlationId")
+            MDC.remove(CORRELATION_ID_KEY)
         }
     }
 }
