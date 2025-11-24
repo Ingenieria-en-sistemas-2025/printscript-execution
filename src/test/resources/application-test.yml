@@ -1,15 +1,13 @@
 spring:
-
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: https://test-auth-issuer.com/
-
+  main:
+    web-application-type: none         # no levantar servidor web
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
       - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration
 
 streams:
   enabled: false
@@ -22,20 +20,6 @@ auth0:
 
 snippets:
   base-url: http://test-snippets:8080
-
-logging:
-  level:
-    org.springframework.security: DEBUG
-    org.springframework.security.web: DEBUG
-    org.springframework.security.oauth2: DEBUG
-    root: INFO
-    org.springframework.data.redis.stream: DEBUG
-    org.springframework.data.redis.serializer: DEBUG
-    org.springframework.data.redis.connection: DEBUG
-    io.lettuce.core: INFO           # pasar a DEBUG si sospechás networking
-    reactor.core.publisher: INFO    # útil para ver reintentos/retries
-  pattern:
-    console: "%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"
 
 execution:
   languages:

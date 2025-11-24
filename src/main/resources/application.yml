@@ -30,9 +30,6 @@ streams:
   linting:
     key: ps.linting
     group: linting-workers
-  dlq:
-    formatting: ps.dlq.formatting
-    linting: ps.dlq.linting
 
 newrelic:
   logs:
