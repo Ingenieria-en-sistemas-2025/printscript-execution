@@ -1,6 +1,7 @@
 package com.printscript.execution.redis
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.printscript.execution.application.ExecutionService
 import com.printscript.execution.infrastructure.redis.LintingConsumer
@@ -25,8 +26,10 @@ import kotlin.test.Test
 
 class LintingConsumerTest {
 
+    private val om = jacksonObjectMapper().findAndRegisterModules()
+
     private fun createConsumer(exec: ExecutionService = mockk(), snippets: SnippetsClient = mockk()): LintingConsumer {
-        val om = ObjectMapper().registerKotlinModule()
+        val om = om
         val redis = mockk<RedisTemplate<String, String>>()
         return LintingConsumer(
             rawStreamKey = "ps.linting",
@@ -58,7 +61,7 @@ class LintingConsumerTest {
         val snippets = mockk<SnippetsClient>()
 
         val consumer = createConsumer(exec, snippets)
-        val om = ObjectMapper().registerKotlinModule()
+        val om = om
 
         val snippetId = UUID.randomUUID()
 
@@ -90,7 +93,7 @@ class LintingConsumerTest {
         val exec = mockk<ExecutionService>()
         val snippets = mockk<SnippetsClient>()
         val consumer = createConsumer(exec, snippets)
-        val om = ObjectMapper().registerKotlinModule()
+        val om = om
         val snippetId = UUID.randomUUID()
 
         val ev = LintingRulesUpdated(
@@ -126,7 +129,7 @@ class LintingConsumerTest {
         val exec = mockk<ExecutionService>()
         val snippets = mockk<SnippetsClient>()
         val consumer = createConsumer(exec, snippets)
-        val om = ObjectMapper().registerKotlinModule()
+        val om = om
         val snippetId = UUID.randomUUID()
 
         val ev = LintingRulesUpdated(
@@ -152,7 +155,7 @@ class LintingConsumerTest {
         val exec = mockk<ExecutionService>()
         val snippets = mockk<SnippetsClient>()
         val consumer = createConsumer(exec, snippets)
-        val om = ObjectMapper().registerKotlinModule()
+        val om = om
         val snippetId = UUID.randomUUID()
 
         val ev = LintingRulesUpdated(

@@ -1,6 +1,7 @@
 package com.printscript.execution.redis
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.printscript.execution.application.ExecutionService
 import com.printscript.execution.infrastructure.redis.FormattingConsumer
@@ -14,6 +15,8 @@ import io.mockk.verify
 import io.printscript.contracts.events.FormattingRulesUpdated
 import io.printscript.contracts.formatter.FormatReq
 import io.printscript.contracts.formatter.FormatRes
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.redis.connection.stream.ObjectRecord
 import org.springframework.data.redis.core.RedisTemplate
 import java.util.UUID
@@ -21,8 +24,10 @@ import kotlin.test.Test
 
 class FormattingConsumerTest {
 
+    private val om = jacksonObjectMapper().findAndRegisterModules()
+
     private fun createConsumer(exec: ExecutionService = mockk(), snippets: SnippetsClient = mockk()): FormattingConsumer {
-        val om = ObjectMapper().registerKotlinModule()
+        val om = om
         val redis = mockk<RedisTemplate<String, String>>()
         return FormattingConsumer(
             rawStreamKey = "ps.formatting",
@@ -52,7 +57,7 @@ class FormattingConsumerTest {
     fun `onMessage procesa evento valido y guarda formatted`() {
         val exec = mockk<ExecutionService>()
         val snippets = mockk<SnippetsClient>()
-        val om = ObjectMapper().registerKotlinModule()
+        val om = om
         val redis = mockk<RedisTemplate<String, String>>()
 
         val consumer = FormattingConsumer(
@@ -72,7 +77,6 @@ class FormattingConsumerTest {
             version = "1.1",
             configText = null,
             configFormat = null,
-            options = null,
         )
         val json = om.writeValueAsString(ev)
 

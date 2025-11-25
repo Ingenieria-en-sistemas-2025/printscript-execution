@@ -61,7 +61,7 @@ dependencies {
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.printscript:runner:$psver")
-    implementation("io.printscript:contracts:0.1.1")
+    implementation("io.printscript:contracts:0.1.5")
     implementation("com.newrelic.agent.java:newrelic-api:8.10.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.springframework.boot:spring-boot-starter-test")

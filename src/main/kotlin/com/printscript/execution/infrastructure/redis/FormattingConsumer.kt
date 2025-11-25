@@ -82,7 +82,6 @@ class FormattingConsumer(
                     content = content,
                     configText = ev.configText ?: "{}",
                     configFormat = ev.configFormat ?: "json",
-                    options = ev.options,
                 ),
             )
             snippets.saveFormatted(ev.snippetId, res.formattedContent)
